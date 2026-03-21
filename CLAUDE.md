@@ -121,7 +121,7 @@ This is a public repo. Never commit or push:
 
 When the user says "checkpoint", do all of the following in order:
 
-1. Update `CLAUDE.md` and any relevant `docs/` files to reflect current state — including what was completed, any decisions made and why, and what's next or still in-progress
+1. Add an entry to `docs/PROGRESS.md` — what was done, decisions made and why, known gaps, and what's next. Then update `CLAUDE.md` and any other relevant `docs/` files to reflect current state
 2. Update memory files (`~/.claude/projects/.../memory/`) with any session learnings, decisions, or gotchas not already captured
 3. Ensure tests exist and pass for all changes made since the last checkpoint
 4. Run `bun run lint` and `bunx tsc --noEmit`
