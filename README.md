@@ -35,6 +35,19 @@ Open [localhost:3000](http://localhost:3000) in your browser.
 2. **Review** parsed income, deductions, and tax breakdowns
 3. **Chat** with Claude to understand your tax situation
 
+## India Tax Returns (ITR)
+
+Tax UI supports Indian ITR returns alongside US returns.
+
+```bash
+ANTHROPIC_API_KEY=sk-... bun run scripts/import-india.ts path/to/itr.pdf
+```
+
+- Supports **ITR-1 (Sahaj)** and **ITR-2** (with capital gains schedules)
+- Handles PDFs downloaded from the Indian IT portal, including Java-serialized wrappers
+- Shows income breakdown, STCG/LTCG, tax liability, refund/due, YoY trends, and charts
+- Switch between 🇺🇸 US and 🇮🇳 India views using the toggle in the header (appears automatically once India returns are imported)
+
 ## Privacy & Security
 
 ### How Your Data is Processed
@@ -81,8 +94,11 @@ Please analyze the source code and verify:
 
 Key files to review:
 - src/index.ts (Bun server and API routes)
-- src/lib/parser.ts (Claude API integration)
-- src/lib/storage.ts (Local file storage)
+- src/lib/parser.ts (US return Claude API integration)
+- src/lib/india-parser.ts (India ITR Claude API integration)
+- src/lib/storage.ts (Local file storage — US)
+- src/lib/india-storage.ts (Local file storage — India)
+- src/lib/pdf-utils.ts (PDF unwrapping utility)
 - src/App.tsx (React frontend)
 
 Report any privacy or security concerns. I'm considering using this app with sensitive tax data.

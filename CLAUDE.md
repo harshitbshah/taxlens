@@ -16,10 +16,18 @@ Tax return PDF parser using Claude API and Bun.
 
 ## Architecture
 
+### US returns
 - `src/index.ts` — Bun.serve() routes
-- `src/lib/parser.ts` — Claude API PDF parsing
-- `src/lib/storage.ts` — Local file persistence
+- `src/lib/parser.ts` — Claude API PDF parsing (two-pass Sonnet, reconcile() post-validation)
+- `src/lib/storage.ts` — Local file persistence (`.tax-returns.json`)
 - `src/App.tsx` — React frontend entry
+
+### India returns
+- `src/lib/india-parser.ts` — ITR parsing: Haiku form-type detection, single-pass for ITR-1, two-pass Sonnet for ITR-2+; proactive token budget (60s sliding window on actual response.usage) to prevent 429s
+- `src/lib/india-storage.ts` — Local file persistence (`.india-tax-returns.json`)
+- `src/lib/pdf-utils.ts` — `unwrapIfJavaSerialized()`: Indian IT portal wraps PDFs in Java object serialization (magic bytes `aced0005`); extracts real PDF by scanning for `%PDF`/`%%EOF`
+- `src/lib/prompt.ts` — ITR-1 and ITR-2 extraction prompts; ITR-1 has no capital gains, 3% cess ≤AY2018-19, 4% from AY2019-20
+- `scripts/import-india.ts` — CLI: parse India PDFs and save to `.india-tax-returns.json`
 
 ## Components
 
