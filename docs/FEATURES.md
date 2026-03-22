@@ -13,7 +13,7 @@ Brainstormed: 2026-03-18
 
 - **PDF export** — download a summary/analysis as PDF to share with a CPA or keep for records. Frontend only (browser print or jspdf).
 - **Missing form detector** — Claude scans your return and flags issues like "you had RSU income but I don't see a cost basis adjustment" or "FBAR threshold may have been crossed."
-- ~~**India / foreign income section**~~ — **Done (2026-03-21)**: ITR-1 and ITR-2 parsing, income/tax charts, YoY badges, country toggle. Remaining: Form 1116 / FTC carryover tracking between US and India views.
+- ~~**India / foreign income section**~~ — ITR-1 and ITR-2 parsing, income/tax charts, YoY badges, country toggle. Remaining: Form 1116 / FTC carryover tracking between US and India views.
 - **Annotation layer** — add notes to any line item ("this was the Amazon sign-on RSU vest") that persist across sessions.
 
 ## Nice to Have
