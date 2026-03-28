@@ -1,6 +1,7 @@
 import Anthropic from "@anthropic-ai/sdk";
 
 import type { IndianTaxReturn, TaxReturn } from "./schema";
+import { formatConstantsForPrompt, getTaxConstants } from "./tax-constants";
 
 export type InsightItem = {
   title: string;
@@ -96,6 +97,8 @@ export function buildInsightsPrompt(
   }
 ]`;
 
+  const constants = getTaxConstants(year);
+
   const parts: string[] = [
     `You are a retroactive tax advisor. Analyze the user's ${year} tax return and identify 2–4 specific things they could have done differently to reduce their tax liability for that year.`,
     "",
@@ -109,6 +112,16 @@ export function buildInsightsPrompt(
 
   if (otherSummaries.length > 0) {
     parts.push("", "## Other years (for context only)", JSON.stringify(otherSummaries, null, 2));
+  }
+
+  if (constants) {
+    parts.push("", formatConstantsForPrompt(constants));
+  } else {
+    parts.push(
+      "",
+      `## Note on ${year} tax constants`,
+      `No verified IRS constants are on file for ${year}. Use your best knowledge but note any bracket or limit figures as unverified.`,
+    );
   }
 
   if (indiaData) {

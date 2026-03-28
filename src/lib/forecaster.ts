@@ -1,6 +1,7 @@
 import Anthropic from "@anthropic-ai/sdk";
 
 import type { IndianTaxReturn, TaxReturn } from "./schema";
+import { formatConstantsForPrompt, getTaxConstants } from "./tax-constants";
 
 export type ForecastResponse = {
   projectedYear: number;
@@ -166,6 +167,8 @@ export function buildForecastPrompt(
   "generatedAt": "${new Date().toISOString()}"
 }`;
 
+  const constants = getTaxConstants(projectedYear);
+
   const parts: string[] = [
     `You are a tax planning analyst. Analyze the user's full tax history and produce a structured forecast for ${projectedYear}.`,
     "",
@@ -175,6 +178,16 @@ export function buildForecastPrompt(
 
   if (hasIndia) {
     parts.push("", "## India ITR History", JSON.stringify(indiaSummaries, null, 2));
+  }
+
+  if (constants) {
+    parts.push("", formatConstantsForPrompt(constants));
+  } else {
+    parts.push(
+      "",
+      `## Note on ${projectedYear} tax constants`,
+      `No verified IRS constants are available for ${projectedYear} in this app yet. Use your best knowledge but flag any bracket or limit figures as unverified in your assumptions.`,
+    );
   }
 
   parts.push(
