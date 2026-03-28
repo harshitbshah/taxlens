@@ -8,6 +8,22 @@ Forked from [brianlovin/tax-ui](https://github.com/brianlovin/tax-ui).
 
 ---
 
+## Screenshots
+
+![Multi-year summary view](docs/screenshots/summary.png)
+
+![Per-year receipt breakdown](docs/screenshots/by-year-receipt.png)
+
+![Tax bracket visualizer](docs/screenshots/bracket-visualizer.png)
+
+![What-if simulator with sliders engaged](docs/screenshots/what-if-simulator.png)
+
+![AI forecast view](docs/screenshots/forecast.png)
+
+![Retroactive insights panel](docs/screenshots/insights-panel.png)
+
+---
+
 ## Features
 
 - **US returns (1040)** — parse PDFs into structured data: income, deductions, brackets, refund/owed, effective rate
