@@ -4,6 +4,28 @@ One entry per checkpoint. Most recent first.
 
 ---
 
+## 2026-03-28 (IRS constants, forecast state lift, constants badges)
+
+**Done:**
+- **`src/lib/tax-constants.ts`** — hardcoded IRS constants for 2024, 2025, 2026 sourced directly from IRS.gov; types `BracketEntry`, `YearConstants`; `getTaxConstants(year)` / `formatConstantsForPrompt(c)`. 2025 reflects OBBBA amendments (single 24% ceiling $197,300, MFJ standard deduction $31,500 — differs from Tax Foundation). 2026 LTCG marked `null` (not yet published). Update instructions at file top.
+- **Constants injection into prompts** — `buildForecastPrompt()` and `buildInsightsPrompt()` both call `getTaxConstants(year)` and inject the formatted block before Instructions; fallback disclaimer shown if year not in constants.
+- **Forecast state lifted to App.tsx** — `ForecastState` type and `handleGenerateForecast()` moved from `ForecastView` to `App.tsx`; the GET cache-load `useEffect` also moved. `ForecastView` is now a pure render component receiving `forecastState` + `onGenerate` as props. Fixes: generating navigating away cancelled the in-flight fetch.
+- **IRS constants verification badges** — `ConstantsStatus` in `ForecastView` and `ConstantsBadge` in `InsightsPanel`: green ✓ for verified years, amber ⚠ for unverified. Forecast loaded header and generating spinner use `warnOnly` mode (renders nothing if all years verified, shows only missing years if any). Per-year InsightsPanel always shows the badge for that specific year.
+
+**Decisions:**
+- `warnOnly` on forecast header: a permanent checklist of all years would grow unbounded; only gaps are actionable signal.
+- Generating spinner also uses `warnOnly` — verified years during generation are noise, not signal.
+- Tax Foundation 2025 data was pre-OBBBA and wrong; always source from `irs.gov/filing/federal-income-tax-rates-and-brackets` directly.
+- Constants file stays hardcoded (not fetched): ~50 lines/year, permanent reference, zero network dependency, ~20 years before it becomes unwieldy.
+
+**Tests:** 154 pass (no new tests — purely UI/prompt changes; constants logic is straight lookups)
+
+**Known gaps:** No tests for `ConstantsStatus` / `ConstantsBadge` rendering (DOM mock setup not in place).
+
+**Next:** Keyboard shortcut `c` for chat, bracket visualizer, or items from FEATURES.md.
+
+---
+
 ## 2026-03-28 (Phase 5: per-year retroactive insights + routing fix)
 
 **Done:**

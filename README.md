@@ -2,7 +2,7 @@
 
 # TaxLens
 
-Visualize, understand, and plan your taxes. Parse US (1040) and India (ITR) returns from PDF, explore multi-year trends, and chat with your tax history using Claude.
+Visualize, understand, and plan your taxes. Parse US (1040) and India (ITR) returns from PDF, explore multi-year trends, get AI-powered retroactive insights per year, and generate a forward forecast — all with your tax history as context.
 
 Forked from [brianlovin/tax-ui](https://github.com/brianlovin/tax-ui).
 
@@ -10,20 +10,15 @@ Forked from [brianlovin/tax-ui](https://github.com/brianlovin/tax-ui).
 
 ## Features
 
-### What's built
 - **US returns (1040)** — parse PDFs into structured data: income, deductions, brackets, refund/owed, effective rate
 - **India returns (ITR-1 / ITR-2)** — import from Indian IT portal PDFs including Java-serialized wrappers; capital gains, TDS, advance tax, YoY trends
-- **Multi-year summary** — YoY charts, effective rate trend, income mix, refund history
+- **Multi-year summary** — YoY charts, effective rate trend, income mix, refund history across all years
 - **By Year view** — detailed breakdown per year with charts and receipt-style layout
-- **Chat with Claude** — year-aware conversation with your full tax history as context
+- **Retroactive insights** — per-year "what could you have done differently" analysis: bracket optimization, capital gains harvesting, deduction opportunities, India regime comparison
+- **AI Forecast** — Claude reasons over your full tax history to project next year's liability, surface action items, bracket position, and risk flags — no manual input
+- **Verified IRS constants** — bracket thresholds, standard deductions, LTCG rates, and contribution limits for 2024–2026 are hardcoded from IRS.gov and injected into every prompt; the UI shows which years are verified vs. unverified
+- **Chat with Claude** — year-aware conversation with your full tax history as context; ask what-ifs from any view
 - **Country toggle** — switch between 🇺🇸 US and 🇮🇳 India views
-
-### Coming soon
-- **AI Forecast** — Claude reasons over your full tax history to project next year's liability, surface action items, and carry forward lessons from past years (no manual input needed)
-- **Retroactive insights** — per-year "what could you have done differently" analysis
-- **Sidebar navigation** — layout refactor for cleaner navigation
-
-See [`docs/FORECAST_SPEC.md`](docs/FORECAST_SPEC.md) for the full roadmap.
 
 ---
 
@@ -56,17 +51,84 @@ Open [localhost:3005](http://localhost:3005).
 
 ---
 
-## Importing Returns
+## User Guide
 
-### US returns
-Upload PDFs directly in the browser — one PDF per tax year.
+### Importing returns
 
-### India returns (ITR)
+**US (1040):** Upload PDFs directly in the browser — drag-and-drop or the file picker. One PDF per tax year. The server parses it with Claude Sonnet and stores the result locally.
+
+**India (ITR):** Use the CLI script:
+
 ```bash
 ANTHROPIC_API_KEY=sk-... bun run scripts/import-india.ts path/to/itr.pdf
 ```
 
-Supports ITR-1 (Sahaj) and ITR-2. Handles PDFs from the Indian IT portal including Java-serialized wrappers.
+Supports ITR-1 (Sahaj) and ITR-2. Handles PDFs from the Indian IT portal, including the Java-serialized wrapper format.
+
+---
+
+### Summary view
+
+The default landing view. Shows:
+- YoY effective rate trend
+- Income mix chart (W-2, capital gains, RSUs, etc.)
+- Refund/owed history
+- All-years table with key metrics
+
+Switch between US and India with the toggle at the top of the sidebar.
+
+---
+
+### By Year view
+
+Select any year from the sidebar. Shows a receipt-style breakdown (income, deductions, federal brackets, state taxes, effective rate) alongside charts for that year.
+
+**Retroactive Insights** appear below the receipt. Click **Generate →** to ask Claude what you could have done differently to reduce your tax bill for that year — bracket optimization, capital gains harvesting, deduction opportunities, India old vs. new regime comparison. Results are cached; click **⟳ Regenerate** to refresh.
+
+A small badge next to the section title shows whether verified IRS constants are on file for that year (green ✓) or whether Claude is using its training data (amber ⚠).
+
+---
+
+### Forecast view
+
+Click **Forecast** in the sidebar Views section. Click **Generate Forecast →** to have Claude analyze your full tax history and produce a structured projection for next year:
+
+- **Projected tax liability** — federal + state, with low/high range
+- **Effective rate** — projected with range
+- **Estimated outcome** — likely refund or owed at filing
+- **Bracket position** — where your projected income lands, with headroom to the next bracket
+- **AI assumptions** — what Claude inferred (salary growth, capital gains variance, deduction patterns) with confidence levels
+- **Action items** — forward-looking optimizations and lessons carried from past years
+- **Risk flags** — genuine uncertainties that could shift the projection
+- **India regime comparison** — if India returns are present, old vs. new regime recommendation for the upcoming year
+
+Generation runs in the background — you can navigate to other views while Claude works and return to see the result. Click **⟳ Regenerate** to refresh. Results are cached across page loads and server restarts.
+
+The header shows amber ⚠ badges only for years where IRS constants are not on file (nothing shown when all years are verified).
+
+---
+
+### Chat
+
+Click the chat icon in the sidebar footer to open the chat panel. Claude has access to your full tax history and knows which year you're currently viewing. Use it for what-if questions:
+
+- "What if I sell my NVDA shares this year?"
+- "What if I don't get a bonus?"
+- "Why did my effective rate jump in 2022?"
+- "How much more would I owe if I exercised my options?"
+
+Follow-up suggestions appear after each response.
+
+---
+
+### IRS constants — what the badges mean
+
+TaxLens hardcodes bracket thresholds, standard deductions, LTCG rates, and contribution limits from IRS.gov for 2024–2026. These are injected into every forecast and insights prompt so Claude uses verified figures rather than training-data recall.
+
+- **Green ✓** — verified IRS constants on file; Claude will use exact figures
+- **Amber ⚠** — no constants on file for this year; Claude will estimate from training data and flag uncertainty
+
+To add a new year's constants (takes ~10 min each October when IRS publishes adjustments), see the update instructions at the top of `src/lib/tax-constants.ts`.
 
 ---
 
@@ -74,7 +136,7 @@ Supports ITR-1 (Sahaj) and ITR-2. Handles PDFs from the Indian IT portal includi
 
 ```bash
 bun run dev          # dev server with HMR on localhost:3005
-bun test             # unit + integration tests
+bun test             # unit tests
 bunx tsc --noEmit    # type check
 bun run lint         # ESLint + Prettier
 ```

@@ -1,6 +1,6 @@
 # Architecture
 
-Last updated: 2026-03-28 (Phase 5)
+Last updated: 2026-03-28 (constants + forecast state lift)
 
 ---
 
@@ -40,7 +40,8 @@ Bun server (src/index.ts)   idleTimeout: 120s (Claude calls take 30–90s)
     ├── src/lib/forecaster.ts       → buildForecastPrompt + parseForecastResponse + generateForecast
     ├── src/lib/forecast-cache.ts   → forecast JSON cache (.forecast-cache.json)
     ├── src/lib/insights.ts         → buildInsightsPrompt + parseInsightsResponse + generateInsights
-    └── src/lib/insights-cache.ts   → per-year insights JSON cache (.insights-cache.json)
+    ├── src/lib/insights-cache.ts   → per-year insights JSON cache (.insights-cache.json)
+    └── src/lib/tax-constants.ts    → verified IRS constants 2024–2026 (brackets, std deduction, LTCG, contrib limits); getTaxConstants(year) / formatConstantsForPrompt(c)
 ```
 
 ---
@@ -79,14 +80,16 @@ User message
 ### Forecast
 ```
 "Generate Forecast" click (or "Regenerate")
-  → ForecastView.tsx: POST /api/forecast
-  → forecaster.ts: buildForecastPrompt() — condensed per-year US + India summaries
+  → App.tsx: handleGenerateForecast() — POST /api/forecast
+  → forecaster.ts: buildForecastPrompt()
+      condensed per-year US + India summaries
+      + tax-constants.ts: getTaxConstants(projectedYear) injected as verified IRS figures
   → Claude Sonnet: returns ForecastResponse JSON
   → parseForecastResponse(): validates + normalizes (confidence, severity, headroom)
   → forecast-cache.ts: writes .forecast-cache.json
 
-Subsequent page loads
-  → ForecastView.tsx: GET /api/forecast on mount
+Subsequent page loads (or mid-generation navigation)
+  → App.tsx: GET /api/forecast on mount (survives navigation — state lives in App, not ForecastView)
   → 200 + cached JSON → show forecast
   → 404 → show "Generate Forecast" empty state
   → network error → show error with "Try again" (NOT silently empty — cache may exist)
@@ -96,8 +99,10 @@ Subsequent page loads
 ```
 "Generate →" click on InsightsPanel (By Year / receipt tab)
   → InsightsPanel.tsx: POST /api/insights?year=N
-  → insights.ts: buildInsightsPrompt() — selected year in full + other years as compact context
-                                        + India ITR for matching FY if present
+  → insights.ts: buildInsightsPrompt()
+      selected year in full + other years as compact context
+      + India ITR for matching FY if present
+      + tax-constants.ts: getTaxConstants(year) injected as verified IRS figures
   → Claude Sonnet: returns InsightItem[] JSON
   → parseInsightsResponse(): strips fences, normalizes category enum
   → insights-cache.ts: writes to .insights-cache.json[year]
@@ -131,13 +136,14 @@ Phase 4 (deferred): upgrade caches to `bun:sqlite` for richer query/history. Cur
 ## Frontend
 
 ```
-src/App.tsx                     main layout + state (country, selectedYear, nav, chat)
+src/App.tsx                     main layout + state (country, selectedYear, nav, chat, forecastState)
 src/lib/nav.ts                  nav item builders + SelectedView type
+src/lib/tax-constants.ts        verified IRS constants 2024–2026; imported by both components and lib
 src/components/
   Sidebar.tsx                   left sidebar (logo, country toggle, views, years, footer)
   MainPanel.tsx                 content area router (summary/receipt/india/forecast/loading)
   Chat.tsx                      floating chat panel (right side)
-  ForecastView.tsx              forecast page (state machine: loading/empty/generating/loaded/error)
+  ForecastView.tsx              forecast page — pure render, receives ForecastState + onGenerate as props
   BracketBar.tsx                bracket position bar with fill% and headroom
   AssumptionsCard.tsx           AI assumptions list with confidence badges
   ActionItemsCard.tsx           action items with category icons and source year tags
@@ -179,7 +185,7 @@ Navigation: left sidebar (192px) with Views section (Summary / By Year / Forecas
 Test files live alongside source. Run: `bun test --testPathPattern="src/"`
 
 ```
-Unit tests (154 passing):
+Unit tests (154 passing — constants, badges, and forecast state lift have no new tests; logic is lookups + pure UI):
   src/App.test.ts                    nav/selection logic
   src/index.test.ts                  server config regressions (idleTimeout, route format)
   src/lib/nav.test.ts                buildUsNavItems, buildIndiaNavItems, getDefault*, parseSelectedId (24)
@@ -232,3 +238,9 @@ Context window efficiency. Full return JSON with whitespace hit token limits; mi
 
 **Why proactive token budget in India parser?**
 Indian ITRs with full capital gains schedules can hit 429 rate limits on Haiku. A 60s sliding window on `response.usage.input_tokens` throttles automatically without user-visible errors.
+
+**Why hardcode IRS constants instead of fetching them?**
+~50 lines per year, permanent source of truth, zero network dependency, auditable inline. At 20 years it's ~1,000 lines — well within the range of a readable config file. The alternative (fetching from an IRS API or Tax Foundation) introduces a dependency, a failure mode, and the risk of pulling pre-amendment data (Tax Foundation's 2025 figures were pre-OBBBA and had wrong bracket ceilings). Always source from `irs.gov/filing/federal-income-tax-rates-and-brackets` directly.
+
+**Why lift ForecastState to App.tsx?**
+`ForecastView` used to own its own `useState` for the forecast state machine. When the user navigated away mid-generation, the component unmounted and the in-flight `POST /api/forecast` fetch was orphaned. Lifting to `App.tsx` makes `ForecastView` a pure render component and lets the fetch survive navigation. The same pattern is used for chat state, upload state, and other long-running operations in App.
