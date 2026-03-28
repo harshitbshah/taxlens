@@ -4,6 +4,8 @@ import path from "path";
 import { fileURLToPath } from "url";
 
 import index from "./index.html";
+import { clearForecastCache, getForecastCache, saveForecastCache } from "./lib/forecast-cache";
+import { generateForecast } from "./lib/forecaster";
 import { extractIndianYearFromPdf, parseIndianReturn } from "./lib/india-parser";
 import {
   clearIndiaData,
@@ -118,6 +120,7 @@ const routes: Record<string, any> = {
     POST: async () => {
       await clearAllData();
       await clearIndiaData();
+      await clearForecastCache();
       return Response.json({ success: true });
     },
   },
@@ -333,6 +336,35 @@ const routes: Record<string, any> = {
           await removeApiKey();
           return Response.json({ error: "Invalid API key" }, { status: 401 });
         }
+        return Response.json({ error: message }, { status: 500 });
+      }
+    },
+  },
+  "/api/forecast": {
+    GET: async () => {
+      const cached = await getForecastCache();
+      if (!cached) return new Response("Not found", { status: 404 });
+      return Response.json(cached);
+    },
+    POST: async () => {
+      const apiKey = getApiKey();
+      if (!apiKey) {
+        return Response.json({ error: "No API key configured" }, { status: 400 });
+      }
+
+      try {
+        const [usReturns, indiaReturns] = await Promise.all([getReturns(), getIndiaReturns()]);
+
+        if (Object.keys(usReturns).length === 0) {
+          return Response.json({ error: "No tax returns on file" }, { status: 400 });
+        }
+
+        const forecast = await generateForecast(usReturns, indiaReturns, apiKey);
+        await saveForecastCache(forecast);
+        return Response.json(forecast);
+      } catch (error) {
+        console.error("Forecast error:", error);
+        const message = error instanceof Error ? error.message : "Unknown error";
         return Response.json({ error: message }, { status: 500 });
       }
     },

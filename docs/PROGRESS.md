@@ -4,7 +4,33 @@ One entry per checkpoint. Most recent first.
 
 ---
 
-## 2026-03-28
+## 2026-03-28 (Phase 2)
+
+**Done:**
+- **Phase 2: Forecast API endpoint**
+  - `src/lib/forecaster.ts` — `ForecastResponse` type; `buildForecastPrompt()` (condensed per-year US + India summaries, schema doc, regime instructions); `parseForecastResponse()` (JSON extraction from code fences, field normalization with safe fallbacks, headroom recompute); `generateForecast()` (Claude Sonnet call)
+  - `src/lib/forecast-cache.ts` — `getForecastCache()` / `saveForecastCache()` / `clearForecastCache()` backed by `.forecast-cache.json` (mirrors `.tax-returns.json` pattern)
+  - `src/index.ts` — `GET /api/forecast` (returns cached or 404), `POST /api/forecast` (generates + caches), `clearForecastCache()` wired into `/api/clear-data`
+  - `src/lib/forecaster.test.ts` — 17 unit tests: `buildForecastPrompt` (6 tests), `parseForecastResponse` (11 tests) covering all normalization paths and edge cases
+
+**Decisions:**
+- Prompt sends condensed per-year summaries, not raw full JSON — avoids display-only fields (qualified dividends, rollover amounts) confusing the model; keeps tokens lean
+- `parseForecastResponse` always recomputes `bracket.headroom` from `ceiling - projectedIncome` — Claude occasionally miscalculates arithmetic
+- Cache is a flat `.forecast-cache.json` file (Phase 4 will upgrade to SQLite if needed); cleared on `/api/clear-data`
+- No `ForecastResponse` Zod schema — parse + normalize manually (consistent with parser.ts pattern; Zod overhead not warranted for a single AI response that we own)
+- India section in response is silently omitted if any required field is missing (never error on partial India data)
+
+**Tests:** 113 pass (96 existing + 17 new forecast tests)
+
+**Known gaps:**
+- Integration tests (GET/POST route cycle) skipped — unit tests cover all logic; cache read/write exercised indirectly through unit test fixtures
+- No auth error handling on forecast endpoint (unlike chat/parse routes) — forecast is server-side only, no API key exposure risk
+
+**Next:** Phase 3 — Forecast view components (`ForecastView.tsx`, `BracketBar.tsx`, `AssumptionsCard.tsx`, `ActionItemsCard.tsx`, `RiskFlags.tsx`, `IndiaRegimeCard.tsx`, `ForecastChatStrip.tsx`)
+
+---
+
+## 2026-03-28 (Phase 1)
 
 **Done:**
 - **Phase 1: Sidebar layout refactor** — replaced top header + horizontal tab navigation with a left sidebar (192px)
