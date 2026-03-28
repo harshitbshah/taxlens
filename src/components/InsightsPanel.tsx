@@ -1,7 +1,8 @@
 import { useEffect, useState } from "react";
 
-import { getUsConstants } from "../lib/constants";
+import { getIndiaConstants, getUsConstants } from "../lib/constants";
 import type { InsightItem } from "../lib/insights";
+import type { IndianTaxReturn } from "../lib/schema";
 
 const CATEGORY_ICONS: Record<InsightItem["category"], string> = {
   retirement: "🏦",
@@ -13,6 +14,7 @@ const CATEGORY_ICONS: Record<InsightItem["category"], string> = {
 
 interface Props {
   year: number;
+  indiaReturns: Record<number, IndianTaxReturn>;
 }
 
 type State =
@@ -22,22 +24,41 @@ type State =
   | { status: "loaded"; items: InsightItem[] }
   | { status: "error"; message: string };
 
-function ConstantsBadge({ year }: { year: number }) {
-  const verified = getUsConstants(year) !== null;
+function ConstantsBadge({ year, indiaFY }: { year: number; indiaFY: number | null }) {
+  const usVerified = getUsConstants(year) !== null;
+  const indiaVerified = indiaFY !== null ? getIndiaConstants(indiaFY) !== null : null;
   return (
-    <span
-      className={
-        verified
-          ? "rounded bg-emerald-50 px-1.5 py-0.5 text-[11px] font-medium text-emerald-700 dark:bg-emerald-950/60 dark:text-emerald-400"
-          : "rounded bg-amber-50 px-1.5 py-0.5 text-[11px] font-medium text-amber-700 dark:bg-amber-950/60 dark:text-amber-400"
-      }
-      title={
-        verified
-          ? `Verified IRS constants on file for ${year}`
-          : `No verified IRS constants on file for ${year} — Claude will use training data`
-      }
-    >
-      {verified ? `✓ ${year} verified` : `⚠ ${year} unverified`}
+    <span className="flex items-center gap-1.5">
+      <span
+        className={
+          usVerified
+            ? "rounded bg-emerald-50 px-1.5 py-0.5 text-[11px] font-medium text-emerald-700 dark:bg-emerald-950/60 dark:text-emerald-400"
+            : "rounded bg-amber-50 px-1.5 py-0.5 text-[11px] font-medium text-amber-700 dark:bg-amber-950/60 dark:text-amber-400"
+        }
+        title={
+          usVerified
+            ? `Verified IRS constants on file for ${year}`
+            : `No verified IRS constants on file for ${year} — Claude will use training data`
+        }
+      >
+        {usVerified ? `✓ US ${year}` : `⚠ US ${year}`}
+      </span>
+      {indiaFY !== null && indiaVerified !== null && (
+        <span
+          className={
+            indiaVerified
+              ? "rounded bg-emerald-50 px-1.5 py-0.5 text-[11px] font-medium text-emerald-700 dark:bg-emerald-950/60 dark:text-emerald-400"
+              : "rounded bg-amber-50 px-1.5 py-0.5 text-[11px] font-medium text-amber-700 dark:bg-amber-950/60 dark:text-amber-400"
+          }
+          title={
+            indiaVerified
+              ? `Verified India tax constants on file for FY ${indiaFY}-${String(indiaFY + 1).slice(2)}`
+              : `No verified India constants on file for FY ${indiaFY} — Claude will use training data`
+          }
+        >
+          {indiaVerified ? `✓ India FY${indiaFY}` : `⚠ India FY${indiaFY}`}
+        </span>
+      )}
     </span>
   );
 }
@@ -61,7 +82,12 @@ function InsightCard({ item }: { item: InsightItem }) {
   );
 }
 
-export function InsightsPanel({ year }: Props) {
+export function InsightsPanel({ year, indiaReturns }: Props) {
+  const matchingIndiaReturn = Object.values(indiaReturns).find(
+    (ir) => ir.financialYear === year || ir.financialYear === year - 1,
+  );
+  const indiaFY = matchingIndiaReturn?.financialYear ?? null;
+
   const [state, setState] = useState<State>({ status: "loading" });
 
   useEffect(() => {
@@ -119,7 +145,7 @@ export function InsightsPanel({ year }: Props) {
       <div className="mx-auto max-w-2xl px-4 py-4 md:px-0">
         <div className="flex items-center justify-between rounded-lg border border-(--color-border) bg-(--color-bg) p-5">
           <p className="text-xs text-(--color-text-muted)">Analyzing {year} return…</p>
-          <ConstantsBadge year={year} />
+          <ConstantsBadge year={year} indiaFY={indiaFY} />
         </div>
       </div>
     );
@@ -151,7 +177,7 @@ export function InsightsPanel({ year }: Props) {
               What you could have done differently to reduce your tax bill
             </p>
             <div className="mt-2">
-              <ConstantsBadge year={year} />
+              <ConstantsBadge year={year} indiaFY={indiaFY} />
             </div>
           </div>
           <button
@@ -173,7 +199,7 @@ export function InsightsPanel({ year }: Props) {
           <p className="text-xs font-semibold tracking-widest text-(--color-text-muted) uppercase">
             {year} Insights
           </p>
-          <ConstantsBadge year={year} />
+          <ConstantsBadge year={year} indiaFY={indiaFY} />
         </div>
         <button
           onClick={generate}

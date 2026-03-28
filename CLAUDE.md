@@ -38,6 +38,14 @@ Tax return PDF parser using Claude API and Bun.
 - `src/lib/prompt.ts` — ITR-1 and ITR-2 extraction prompts; ITR-1 has no capital gains, 3% cess ≤AY2018-19, 4% from AY2019-20
 - `scripts/import-india.ts` — CLI: parse India PDFs and save to `.india-tax-returns.json`
 
+### Tax constants
+- `src/lib/constants/` — per-country modules; each owns its type, data, getter, and prompt formatter
+  - `shared.ts` — `BracketEntry` primitive
+  - `us.ts` — `UsYearConstants`, `getUsConstants(year)`, `formatUsConstantsForPrompt(c)` — IRS data 2018–2026
+  - `india.ts` — `IndiaYearConstants`, `getIndiaConstants(financialYear)`, `formatIndiaConstantsForPrompt(c)` — Income Tax India data FY 2018–2025 (both regimes, surcharge, cess, deduction caps)
+  - `index.ts` — re-exports all registered countries
+- To add a new country: see `docs/ADDING_COUNTRY_CONSTANTS.md`
+
 ## Components
 
 Use shared components from `src/components/` instead of raw HTML:

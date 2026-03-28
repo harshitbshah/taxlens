@@ -4,6 +4,31 @@ One entry per checkpoint. Most recent first.
 
 ---
 
+## 2026-03-28 (India constants, bracket visualizer, what-if simulator)
+
+**Done:**
+- **`src/lib/constants/india.ts`** — `IndiaYearConstants` type covering old/new regime slabs, standard deduction, 87A rebate, cess rate (4%), surcharge thresholds (10/15/25/37%), and old-regime deduction caps (80C ₹1.5L, 80D, 80CCD(1B)). `INDIA_TAX_CONSTANTS` record for FY 2018–2025 (financialYear keys matching how `IndianTaxReturn.financialYear` is stored). `getIndiaConstants(financialYear)` / `formatIndiaConstantsForPrompt(c)`. Key inflection points captured: cess raised 3→4% FY 2018-19, standard deduction reintroduced FY 2018-19 (₹40k→₹50k FY 2019-20), new regime introduced FY 2020-21 (optional), new regime became default + 87A raised to ₹7L + surcharge capped at 25% FY 2023-24, 87A raised to ₹12L FY 2025-26.
+- **India constants wired** — injected into `buildForecastPrompt()` (projected FY = latest India FY + 1) and `buildInsightsPrompt()` (FY matching selected year). `InsightsPanel` `ConstantsBadge` now shows both US and India badges when an India return is present.
+- **`src/components/BracketVisualizer.tsx`** — full multi-bracket stacked bar for the US By Year charts view. Color-coded segments (green 10% → red 37%), headroom gray for marginal bracket, axis labels, "you are here" row in the per-bracket breakdown table, bracket-computed tax footer with discrepancy note if it differs from filed amount by >$500. Accepts optional `adjustedTaxableIncome` prop for what-if mode: bar reflects adjusted income, original position shown as a white marker line, header shows strikethrough original / new income, footer shows bracket tax delta.
+- **`src/components/WhatIfSimulator.tsx`** — four sliders: 401(k) top-up (0 to year limit), IRA contribution (0 to year limit), additional deductions (0–$50K), capital gain/loss adjustment (−$50K to +$50K). Emits combined delta to `YearCharts` via `onDeltaChange`. Limits sourced from `getUsConstants(year)` — shows a graceful fallback if no constants on file. Shows before→after taxable income and bracket tax, with green savings / red increase callout when change > $50.
+- **`YearCharts.tsx`** — added `useState<number>(0)` for `whatIfDelta`; resets to 0 on `data.year` change via `useEffect`; passes `adjustedTaxableIncome` to `BracketVisualizer` and `onDeltaChange` to `WhatIfSimulator`.
+- **`computeBracketTax(taxableIncome, brackets)`** — extracted to `src/lib/tax-calculations.ts`; shared by `BracketVisualizer` and `WhatIfSimulator`.
+- **Constants directory restructured** (previous checkpoint) — `src/lib/tax-constants.ts` → `src/lib/constants/` with `shared.ts` / `us.ts` / `india.ts` / `index.ts`; `docs/ADDING_COUNTRY_CONSTANTS.md` onboarding guide.
+
+**Decisions:**
+- What-if simulator uses ordinary-bracket math only (not LTCG preferential rates) — a note in the capital gains sublabel explains this. The directional savings estimate is accurate for W-2/ordinary income adjustments; LTCG savings will be understated.
+- `adjustedTaxableIncome` drives the `BracketVisualizer` fully (rescales display range and recomputes marginal bracket) — the user can see if their adjustment drops them into a lower bracket, which is the most interesting scenario.
+- The original-income white marker line is inside the `overflow-hidden` bar container using `absolute` positioning — works even when adjusted income is lower (marker appears to the right of the filled portion).
+- India `IndiaYearConstants` has no shared supertype with `UsYearConstants` — structures are too different (FY keys vs calendar year, two regimes vs filing status, INR vs USD).
+
+**Tests:** 159 pass (154 + 5 new `computeBracketTax` tests)
+
+**Known gaps:** `WhatIfSimulator` sliders use browser default range styling (accent-indigo-500); appearance varies by OS. Dark mode thumb color is system-dependent. Not blocking.
+
+**Next:** Multi-year income sources stacked chart, PDF export, or missing form detector (see FEATURES.md).
+
+---
+
 ## 2026-03-28 (IRS constants, forecast state lift, constants badges)
 
 **Done:**

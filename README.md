@@ -14,9 +14,11 @@ Forked from [brianlovin/tax-ui](https://github.com/brianlovin/tax-ui).
 - **India returns (ITR-1 / ITR-2)** — import from Indian IT portal PDFs including Java-serialized wrappers; capital gains, TDS, advance tax, YoY trends
 - **Multi-year summary** — YoY charts, effective rate trend, income mix, refund history across all years
 - **By Year view** — detailed breakdown per year with charts and receipt-style layout
+- **Tax bracket visualizer** — color-coded stacked bar showing exactly where taxable income lands across each bracket, per-bracket income and tax, headroom to the next bracket
+- **What-if simulator** — sliders for 401(k) top-up, IRA, deductions, and capital gains; bracket bar updates live with a marker at your original position
 - **Retroactive insights** — per-year "what could you have done differently" analysis: bracket optimization, capital gains harvesting, deduction opportunities, India regime comparison
 - **AI Forecast** — Claude reasons over your full tax history to project next year's liability, surface action items, bracket position, and risk flags — no manual input
-- **Verified IRS constants** — bracket thresholds, standard deductions, LTCG rates, and contribution limits for 2024–2026 are hardcoded from IRS.gov and injected into every prompt; the UI shows which years are verified vs. unverified
+- **Verified tax constants** — IRS bracket thresholds, standard deductions, LTCG rates, and contribution limits for 2018–2026; India tax slabs (old/new regimes), surcharge, cess, and deduction caps for FY 2018–2025 — hardcoded from authoritative sources and injected into every prompt
 - **Chat with Claude** — year-aware conversation with your full tax history as context; ask what-ifs from any view
 - **Country toggle** — switch between 🇺🇸 US and 🇮🇳 India views
 
@@ -81,11 +83,25 @@ Switch between US and India with the toggle at the top of the sidebar.
 
 ### By Year view
 
-Select any year from the sidebar. Shows a receipt-style breakdown (income, deductions, federal brackets, state taxes, effective rate) alongside charts for that year.
+Select any year from the sidebar. Toggle between **Receipt** (detailed line-item breakdown) and **Charts** tabs.
 
-**Retroactive Insights** appear below the receipt. Click **Generate →** to ask Claude what you could have done differently to reduce your tax bill for that year — bracket optimization, capital gains harvesting, deduction opportunities, India old vs. new regime comparison. Results are cached; click **⟳ Regenerate** to refresh.
+**Charts tab** shows three tools:
 
-A small badge next to the section title shows whether verified IRS constants are on file for that year (green ✓) or whether Claude is using its training data (amber ⚠).
+1. **Federal Tax Bracket Visualizer** — a color-coded stacked bar (green 10% → red 37%) showing exactly where taxable income lands. Each bracket shows income in the band and the tax it generated. The marginal bracket is highlighted with a "you are here" label; headroom to the next bracket is shown in gray. If the bracket-computed tax differs from the filed amount by >$500, a note explains why (AMT, QBI deduction, etc.).
+
+2. **What-if Simulator** — four sliders let you adjust:
+   - 401(k) top-up (0 to year's employee limit)
+   - IRA contribution (0 to year's limit)
+   - Additional deductions (0 to $50K)
+   - Capital gain/loss adjustment (−$50K to +$50K; negative = harvest losses)
+
+   The bracket bar updates live as you move sliders — a white marker line shows where your original income was. The simulator shows before→after taxable income and bracket tax, with a green savings callout. Resets automatically when you navigate to a different year.
+
+3. **Income breakdown** and **waterfall charts** (existing).
+
+**Retroactive Insights** appear below the receipt on the Receipt tab. Click **Generate →** to ask Claude what you could have done differently to reduce your tax bill for that year — bracket optimization, capital gains harvesting, deduction opportunities, India old vs. new regime comparison. Results are cached; click **⟳ Regenerate** to refresh.
+
+A badge shows whether verified constants are on file for that year (green ✓ US + India) or whether Claude is using its training data (amber ⚠).
 
 ---
 
@@ -121,14 +137,19 @@ Follow-up suggestions appear after each response.
 
 ---
 
-### IRS constants — what the badges mean
+### Tax constants — what the badges mean
 
-TaxLens hardcodes bracket thresholds, standard deductions, LTCG rates, and contribution limits from IRS.gov for 2024–2026. These are injected into every forecast and insights prompt so Claude uses verified figures rather than training-data recall.
+TaxLens hardcodes tax constants from authoritative government sources and injects them into every forecast and insights prompt so Claude uses verified figures rather than training-data recall.
 
-- **Green ✓** — verified IRS constants on file; Claude will use exact figures
+**US (IRS):** bracket thresholds, standard deductions, LTCG rates, and 401(k)/IRA contribution limits for **2018–2026** (2025 reflects OBBBA amendments; 2026 LTCG pending).
+
+**India (Income Tax India):** old and new regime slabs, standard deduction, 87A rebate, surcharge thresholds, 4% cess, and 80C/80D/80CCD deduction caps for **FY 2018–2025**.
+
+Badge meanings:
+- **Green ✓** — verified constants on file; Claude will use exact figures
 - **Amber ⚠** — no constants on file for this year; Claude will estimate from training data and flag uncertainty
 
-To add a new year's constants (takes ~10 min each October when IRS publishes adjustments), see the update instructions at the top of `src/lib/tax-constants.ts`.
+To update constants for a new tax year or add a new country, see `docs/ADDING_COUNTRY_CONSTANTS.md`.
 
 ---
 

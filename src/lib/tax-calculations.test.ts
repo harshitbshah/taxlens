@@ -1,7 +1,8 @@
 import { describe, expect, test } from "bun:test";
 
+import type { BracketEntry } from "./constants";
 import type { TaxReturn } from "./schema";
-import { getEffectiveRate, getNetIncome, getTotalTax } from "./tax-calculations";
+import { computeBracketTax, getEffectiveRate, getNetIncome, getTotalTax } from "./tax-calculations";
 
 const baseTaxReturn: TaxReturn = {
   year: 2024,
@@ -40,6 +41,50 @@ const baseTaxReturn: TaxReturn = {
     netPosition: 500,
   },
 };
+
+// Simplified 2024 single brackets for test use
+const SINGLE_2024: BracketEntry[] = [
+  { floor: 0, ceiling: 11600, rate: 10 },
+  { floor: 11601, ceiling: 47150, rate: 12 },
+  { floor: 47151, ceiling: 100525, rate: 22 },
+  { floor: 100526, ceiling: 191950, rate: 24 },
+  { floor: 191951, ceiling: Infinity, rate: 32 },
+];
+
+describe("computeBracketTax", () => {
+  test("returns 0 for zero income", () => {
+    expect(computeBracketTax(0, SINGLE_2024)).toBe(0);
+  });
+
+  test("computes tax within first bracket only", () => {
+    // $5,000 at 10% = $500
+    expect(computeBracketTax(5000, SINGLE_2024)).toBe(500);
+  });
+
+  test("computes tax spanning two brackets", () => {
+    // 10% on $11,600 = $1,160
+    // 12% on ($20,000 - $11,601) = $1,007.88
+    const expected = 11600 * 0.1 + (20000 - 11601) * 0.12;
+    expect(computeBracketTax(20000, SINGLE_2024)).toBeCloseTo(expected, 1);
+  });
+
+  test("computes tax spanning multiple brackets", () => {
+    // At $50,000: 10% on 0-11600, 12% on 11601-47150, 22% on 47151-50000
+    const expected = 11600 * 0.1 + (47150 - 11601) * 0.12 + (50000 - 47151) * 0.22;
+    expect(computeBracketTax(50000, SINGLE_2024)).toBeCloseTo(expected, 1);
+  });
+
+  test("handles top bracket (Infinity ceiling)", () => {
+    // $200,000: fills first 4 brackets + 32% on 200000-191951
+    const expected =
+      11600 * 0.1 +
+      (47150 - 11601) * 0.12 +
+      (100525 - 47151) * 0.22 +
+      (191950 - 100526) * 0.24 +
+      (200000 - 191951) * 0.32;
+    expect(computeBracketTax(200000, SINGLE_2024)).toBeCloseTo(expected, 1);
+  });
+});
 
 describe("getTotalTax", () => {
   test("sums federal and state taxes", () => {

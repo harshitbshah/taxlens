@@ -186,7 +186,10 @@ export function MainPanel(props: Props) {
           ) : (
             <div className="flex-1 overflow-y-auto bg-neutral-50 dark:bg-neutral-950">
               <ReceiptView data={props.data} />
-              <InsightsPanel year={props.selectedYear as number} />
+              <InsightsPanel
+                year={props.selectedYear as number}
+                indiaReturns={props.indiaReturns}
+              />
             </div>
           )}
         </div>

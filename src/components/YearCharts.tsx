@@ -1,9 +1,12 @@
 import { ResponsiveBar } from "@nivo/bar";
+import { useEffect, useState } from "react";
 import { Cell, Pie, PieChart, ResponsiveContainer, Tooltip } from "recharts";
 
 import { formatCurrency } from "../lib/format";
 import type { TaxReturn } from "../lib/schema";
 import { getTotalTax } from "../lib/tax-calculations";
+import { BracketVisualizer } from "./BracketVisualizer";
+import { WhatIfSimulator } from "./WhatIfSimulator";
 
 interface Props {
   data: TaxReturn;
@@ -30,6 +33,16 @@ function ChartCard({ title, children }: { title: string; children: React.ReactNo
 }
 
 export function YearCharts({ data }: Props) {
+  const [whatIfDelta, setWhatIfDelta] = useState(0);
+
+  // Reset simulator when navigating to a different year
+  useEffect(() => {
+    setWhatIfDelta(0);
+  }, [data.year]);
+
+  const adjustedTaxableIncome =
+    whatIfDelta !== 0 ? Math.max(0, data.federal.taxableIncome + whatIfDelta) : undefined;
+
   // Income breakdown donut
   const incomeItems = data.income.items
     .filter((item) => item.amount > 0)
@@ -86,6 +99,8 @@ export function YearCharts({ data }: Props) {
 
   return (
     <div className="space-y-4 p-6">
+      <BracketVisualizer data={data} adjustedTaxableIncome={adjustedTaxableIncome} />
+      <WhatIfSimulator data={data} onDeltaChange={setWhatIfDelta} />
       <div className="grid grid-cols-1 gap-4 md:grid-cols-2">
         {/* Income breakdown donut */}
         <ChartCard title="Income Breakdown">

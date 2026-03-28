@@ -1,6 +1,11 @@
 import Anthropic from "@anthropic-ai/sdk";
 
-import { formatUsConstantsForPrompt, getUsConstants } from "./constants";
+import {
+  formatIndiaConstantsForPrompt,
+  formatUsConstantsForPrompt,
+  getIndiaConstants,
+  getUsConstants,
+} from "./constants";
 import type { IndianTaxReturn, TaxReturn } from "./schema";
 
 export type ForecastResponse = {
@@ -188,6 +193,21 @@ export function buildForecastPrompt(
       `## Note on ${projectedYear} tax constants`,
       `No verified IRS constants are available for ${projectedYear} in this app yet. Use your best knowledge but flag any bracket or limit figures as unverified in your assumptions.`,
     );
+  }
+
+  if (hasIndia) {
+    // India FY projected year: most recent India return's financialYear + 1
+    const projectedIndiaFY = Math.max(...indiaYears) + 1;
+    const indiaConstants = getIndiaConstants(projectedIndiaFY);
+    if (indiaConstants) {
+      parts.push("", formatIndiaConstantsForPrompt(indiaConstants));
+    } else {
+      parts.push(
+        "",
+        `## Note on FY ${projectedIndiaFY}-${String(projectedIndiaFY + 1).slice(2)} India tax constants`,
+        `No verified India constants on file for FY ${projectedIndiaFY}. Use best knowledge but flag figures as unverified.`,
+      );
+    }
   }
 
   parts.push(

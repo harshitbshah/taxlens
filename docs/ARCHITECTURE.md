@@ -1,6 +1,6 @@
 # Architecture
 
-Last updated: 2026-03-28 (constants + forecast state lift)
+Last updated: 2026-03-28 (India constants, bracket visualizer, what-if simulator)
 
 ---
 
@@ -41,7 +41,11 @@ Bun server (src/index.ts)   idleTimeout: 120s (Claude calls take 30–90s)
     ├── src/lib/forecast-cache.ts   → forecast JSON cache (.forecast-cache.json)
     ├── src/lib/insights.ts         → buildInsightsPrompt + parseInsightsResponse + generateInsights
     ├── src/lib/insights-cache.ts   → per-year insights JSON cache (.insights-cache.json)
-    └── src/lib/tax-constants.ts    → verified IRS constants 2024–2026 (brackets, std deduction, LTCG, contrib limits); getTaxConstants(year) / formatConstantsForPrompt(c)
+    └── src/lib/constants/          → per-country tax constants injected into prompts
+            shared.ts               → BracketEntry type
+            us.ts                   → IRS constants 2018–2026; getUsConstants(year) / formatUsConstantsForPrompt(c)
+            india.ts                → India constants FY 2018–2025 (old+new regimes, surcharge, cess, deductions)
+            index.ts                → re-exports all countries
 ```
 
 ---
@@ -83,7 +87,8 @@ User message
   → App.tsx: handleGenerateForecast() — POST /api/forecast
   → forecaster.ts: buildForecastPrompt()
       condensed per-year US + India summaries
-      + tax-constants.ts: getTaxConstants(projectedYear) injected as verified IRS figures
+      + constants/us.ts: getUsConstants(projectedYear) injected as verified IRS figures
+      + constants/india.ts: getIndiaConstants(projectedIndiaFY) injected if India returns present
   → Claude Sonnet: returns ForecastResponse JSON
   → parseForecastResponse(): validates + normalizes (confidence, severity, headroom)
   → forecast-cache.ts: writes .forecast-cache.json
@@ -102,7 +107,8 @@ Subsequent page loads (or mid-generation navigation)
   → insights.ts: buildInsightsPrompt()
       selected year in full + other years as compact context
       + India ITR for matching FY if present
-      + tax-constants.ts: getTaxConstants(year) injected as verified IRS figures
+      + constants/us.ts: getUsConstants(year) injected as verified IRS figures
+      + constants/india.ts: getIndiaConstants(indiaFY) injected if India return matches year
   → Claude Sonnet: returns InsightItem[] JSON
   → parseInsightsResponse(): strips fences, normalizes category enum
   → insights-cache.ts: writes to .insights-cache.json[year]
@@ -138,7 +144,7 @@ Phase 4 (deferred): upgrade caches to `bun:sqlite` for richer query/history. Cur
 ```
 src/App.tsx                     main layout + state (country, selectedYear, nav, chat, forecastState)
 src/lib/nav.ts                  nav item builders + SelectedView type
-src/lib/tax-constants.ts        verified IRS constants 2024–2026; imported by both components and lib
+src/lib/constants/              per-country tax constants (US 2018–2026, India FY 2018–2025)
 src/components/
   Sidebar.tsx                   left sidebar (logo, country toggle, views, years, footer)
   MainPanel.tsx                 content area router (summary/receipt/india/forecast/loading)
@@ -155,7 +161,9 @@ src/components/
   SummaryCharts.tsx             US multi-year charts (recharts)
   SummaryReceiptView.tsx        US summary receipt style
   ReceiptView.tsx               US single-year detail
-  YearCharts.tsx                US single-year charts
+  YearCharts.tsx                US single-year charts (owns whatIfDelta state; resets on year change)
+  BracketVisualizer.tsx         multi-bracket stacked bar; accepts adjustedTaxableIncome for what-if mode
+  WhatIfSimulator.tsx           four sliders (401k, IRA, deductions, cap gains); emits delta to YearCharts
   IndiaSummaryView.tsx          India all-years table
   IndiaSummaryCharts.tsx        India charts
   IndiaReceiptView.tsx          India single-year detail
@@ -185,12 +193,12 @@ Navigation: left sidebar (192px) with Views section (Summary / By Year / Forecas
 Test files live alongside source. Run: `bun test --testPathPattern="src/"`
 
 ```
-Unit tests (154 passing — constants, badges, and forecast state lift have no new tests; logic is lookups + pure UI):
+Unit tests (159 passing):
   src/App.test.ts                    nav/selection logic
   src/index.test.ts                  server config regressions (idleTimeout, route format)
   src/lib/nav.test.ts                buildUsNavItems, buildIndiaNavItems, getDefault*, parseSelectedId (24)
   src/lib/format.test.ts             formatINRCompact, formatCurrency, formatPercent
-  src/lib/tax-calculations.test.ts   getTotalTax, getNetIncome
+  src/lib/tax-calculations.test.ts   getTotalTax, getNetIncome, computeBracketTax (5 new)
   src/lib/summary.test.ts            summary recomputation
   src/lib/classifier.test.ts         return type classification
   src/lib/india-parser.test.ts       reconcileIndianReturn (10)
@@ -241,6 +249,15 @@ Indian ITRs with full capital gains schedules can hit 429 rate limits on Haiku. 
 
 **Why hardcode IRS constants instead of fetching them?**
 ~50 lines per year, permanent source of truth, zero network dependency, auditable inline. At 20 years it's ~1,000 lines — well within the range of a readable config file. The alternative (fetching from an IRS API or Tax Foundation) introduces a dependency, a failure mode, and the risk of pulling pre-amendment data (Tax Foundation's 2025 figures were pre-OBBBA and had wrong bracket ceilings). Always source from `irs.gov/filing/federal-income-tax-rates-and-brackets` directly.
+
+**Why a per-country module directory for constants instead of a single file?**
+A single `tax-constants.ts` with US-only types would need to absorb India (old/new regimes, surcharge, cess, FY keys) and Canada (federal + provincial, RRSP/TFSA) with incompatible structures. Each country gets its own module with its own type, data record, getter, and prompt formatter. No shared supertype is forced. `index.ts` re-exports all registered countries. See `docs/ADDING_COUNTRY_CONSTANTS.md` for onboarding a new country.
+
+**Why does WhatIfSimulator pass delta to YearCharts rather than owning both components?**
+`BracketVisualizer` needs to update in place so the user sees the bracket bar shift as they move sliders. This requires shared state. `YearCharts` is the natural owner since it already renders both components side-by-side and resets the delta to 0 when the user navigates to a different year.
+
+**Why does `computeBracketTax` live in `tax-calculations.ts` and not inline in the components?**
+Both `BracketVisualizer` and `WhatIfSimulator` need the same bracket math. Extracting it to `tax-calculations.ts` makes it unit-testable and eliminates duplication.
 
 **Why lift ForecastState to App.tsx?**
 `ForecastView` used to own its own `useState` for the forecast state machine. When the user navigated away mid-generation, the component unmounted and the in-flight `POST /api/forecast` fetch was orphaned. Lifting to `App.tsx` makes `ForecastView` a pure render component and lets the fetch survive navigation. The same pattern is used for chat state, upload state, and other long-running operations in App.

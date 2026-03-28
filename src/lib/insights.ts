@@ -1,6 +1,11 @@
 import Anthropic from "@anthropic-ai/sdk";
 
-import { formatUsConstantsForPrompt, getUsConstants } from "./constants";
+import {
+  formatIndiaConstantsForPrompt,
+  formatUsConstantsForPrompt,
+  getIndiaConstants,
+  getUsConstants,
+} from "./constants";
 import type { IndianTaxReturn, TaxReturn } from "./schema";
 
 export type InsightItem = {
@@ -125,6 +130,18 @@ export function buildInsightsPrompt(
   }
 
   if (indiaData) {
+    // India FY for insights: matchingIndiaReturn.financialYear
+    const indiaFY = matchingIndiaReturn!.financialYear;
+    const indiaConstants = getIndiaConstants(indiaFY);
+    if (indiaConstants) {
+      parts.push("", formatIndiaConstantsForPrompt(indiaConstants));
+    } else {
+      parts.push(
+        "",
+        `## Note on FY ${indiaFY}-${String(indiaFY + 1).slice(2)} India tax constants`,
+        `No verified India constants on file for FY ${indiaFY}. Use best knowledge but flag figures as unverified.`,
+      );
+    }
     parts.push("", `## India ITR for same period`, JSON.stringify(indiaData, null, 2));
   }
 

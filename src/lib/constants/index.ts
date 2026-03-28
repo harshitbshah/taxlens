@@ -8,6 +8,12 @@
 //
 // Registered countries:
 export {
+  formatIndiaConstantsForPrompt,
+  getIndiaConstants,
+  type IndiaRegimeConstants,
+  type IndiaYearConstants,
+} from "./india";
+export {
   type BracketEntry,
   formatUsConstantsForPrompt,
   getUsConstants,
@@ -15,5 +21,4 @@ export {
 } from "./us";
 
 // Planned — uncomment and create the module when ready:
-// export { getIndiaConstants, formatIndiaConstantsForPrompt, type IndiaYearConstants } from "./india";
 // export { getCanadaConstants, formatCanadaConstantsForPrompt, type CanadaYearConstants } from "./canada";
