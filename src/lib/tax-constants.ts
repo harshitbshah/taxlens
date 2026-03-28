@@ -43,6 +43,312 @@ export type YearConstants = {
 
 // ceiling: Infinity represents "no upper limit" (top bracket)
 const TAX_CONSTANTS: Record<number, YearConstants> = {
+  2018: {
+    year: 2018,
+    // First year of TCJA brackets. Numbers from training data — verify at:
+    // https://www.irs.gov/newsroom/irs-announces-2018-tax-rates-standard-deductions-exemption-amounts-and-more
+    sources: [
+      "https://www.irs.gov/newsroom/irs-announces-2018-tax-rates-standard-deductions-exemption-amounts-and-more",
+      "https://www.irs.gov/taxtopics/tc409",
+    ],
+    brackets: {
+      single: [
+        { floor: 0, ceiling: 9525, rate: 10 },
+        { floor: 9526, ceiling: 38700, rate: 12 },
+        { floor: 38701, ceiling: 82500, rate: 22 },
+        { floor: 82501, ceiling: 157500, rate: 24 },
+        { floor: 157501, ceiling: 200000, rate: 32 },
+        { floor: 200001, ceiling: 500000, rate: 35 },
+        { floor: 500001, ceiling: Infinity, rate: 37 },
+      ],
+      mfj: [
+        { floor: 0, ceiling: 19050, rate: 10 },
+        { floor: 19051, ceiling: 77400, rate: 12 },
+        { floor: 77401, ceiling: 165000, rate: 22 },
+        { floor: 165001, ceiling: 315000, rate: 24 },
+        { floor: 315001, ceiling: 400000, rate: 32 },
+        { floor: 400001, ceiling: 600000, rate: 35 },
+        { floor: 600001, ceiling: Infinity, rate: 37 },
+      ],
+      hoh: [
+        { floor: 0, ceiling: 13600, rate: 10 },
+        { floor: 13601, ceiling: 51800, rate: 12 },
+        { floor: 51801, ceiling: 82500, rate: 22 },
+        { floor: 82501, ceiling: 157500, rate: 24 },
+        { floor: 157501, ceiling: 200000, rate: 32 },
+        { floor: 200001, ceiling: 500000, rate: 35 },
+        { floor: 500001, ceiling: Infinity, rate: 37 },
+      ],
+    },
+    standardDeduction: { single: 12000, mfj: 24000, hoh: 18000 },
+    ltcg: {
+      single: { zeroTo: 38600, fifteenTo: 425800 },
+      mfj: { zeroTo: 77200, fifteenTo: 479000 },
+      hoh: { zeroTo: 51700, fifteenTo: 452400 },
+    },
+    contributions: {
+      k401: 18500,
+      k401CatchUp: 6000,
+      ira: 5500,
+      iraCatchUp: 1000,
+    },
+  },
+
+  2019: {
+    year: 2019,
+    // Numbers from training data — verify at:
+    // https://www.irs.gov/newsroom/irs-provides-tax-inflation-adjustments-for-tax-year-2019
+    sources: [
+      "https://www.irs.gov/newsroom/irs-provides-tax-inflation-adjustments-for-tax-year-2019",
+      "https://www.irs.gov/taxtopics/tc409",
+    ],
+    brackets: {
+      single: [
+        { floor: 0, ceiling: 9700, rate: 10 },
+        { floor: 9701, ceiling: 39475, rate: 12 },
+        { floor: 39476, ceiling: 84200, rate: 22 },
+        { floor: 84201, ceiling: 160725, rate: 24 },
+        { floor: 160726, ceiling: 204100, rate: 32 },
+        { floor: 204101, ceiling: 510300, rate: 35 },
+        { floor: 510301, ceiling: Infinity, rate: 37 },
+      ],
+      mfj: [
+        { floor: 0, ceiling: 19400, rate: 10 },
+        { floor: 19401, ceiling: 78950, rate: 12 },
+        { floor: 78951, ceiling: 168400, rate: 22 },
+        { floor: 168401, ceiling: 321450, rate: 24 },
+        { floor: 321451, ceiling: 408200, rate: 32 },
+        { floor: 408201, ceiling: 612350, rate: 35 },
+        { floor: 612351, ceiling: Infinity, rate: 37 },
+      ],
+      hoh: [
+        { floor: 0, ceiling: 13850, rate: 10 },
+        { floor: 13851, ceiling: 52850, rate: 12 },
+        { floor: 52851, ceiling: 84200, rate: 22 },
+        { floor: 84201, ceiling: 160700, rate: 24 },
+        { floor: 160701, ceiling: 204100, rate: 32 },
+        { floor: 204101, ceiling: 510300, rate: 35 },
+        { floor: 510301, ceiling: Infinity, rate: 37 },
+      ],
+    },
+    standardDeduction: { single: 12200, mfj: 24400, hoh: 18350 },
+    ltcg: {
+      single: { zeroTo: 39375, fifteenTo: 434550 },
+      mfj: { zeroTo: 78750, fifteenTo: 488850 },
+      hoh: { zeroTo: 52750, fifteenTo: 461700 },
+    },
+    contributions: {
+      k401: 19000,
+      k401CatchUp: 6000,
+      ira: 6000, // increased from $5,500 in 2018
+      iraCatchUp: 1000,
+    },
+  },
+
+  2020: {
+    year: 2020,
+    // Numbers from training data — verify at:
+    // https://www.irs.gov/newsroom/irs-provides-tax-inflation-adjustments-for-tax-year-2020
+    sources: [
+      "https://www.irs.gov/newsroom/irs-provides-tax-inflation-adjustments-for-tax-year-2020",
+      "https://www.irs.gov/taxtopics/tc409",
+    ],
+    brackets: {
+      single: [
+        { floor: 0, ceiling: 9875, rate: 10 },
+        { floor: 9876, ceiling: 40125, rate: 12 },
+        { floor: 40126, ceiling: 85525, rate: 22 },
+        { floor: 85526, ceiling: 163300, rate: 24 },
+        { floor: 163301, ceiling: 207350, rate: 32 },
+        { floor: 207351, ceiling: 518400, rate: 35 },
+        { floor: 518401, ceiling: Infinity, rate: 37 },
+      ],
+      mfj: [
+        { floor: 0, ceiling: 19750, rate: 10 },
+        { floor: 19751, ceiling: 80250, rate: 12 },
+        { floor: 80251, ceiling: 171050, rate: 22 },
+        { floor: 171051, ceiling: 326600, rate: 24 },
+        { floor: 326601, ceiling: 414700, rate: 32 },
+        { floor: 414701, ceiling: 622050, rate: 35 },
+        { floor: 622051, ceiling: Infinity, rate: 37 },
+      ],
+      hoh: [
+        { floor: 0, ceiling: 14100, rate: 10 },
+        { floor: 14101, ceiling: 53700, rate: 12 },
+        { floor: 53701, ceiling: 85500, rate: 22 },
+        { floor: 85501, ceiling: 163300, rate: 24 },
+        { floor: 163301, ceiling: 207350, rate: 32 },
+        { floor: 207351, ceiling: 518400, rate: 35 },
+        { floor: 518401, ceiling: Infinity, rate: 37 },
+      ],
+    },
+    standardDeduction: { single: 12400, mfj: 24800, hoh: 18650 },
+    ltcg: {
+      single: { zeroTo: 40000, fifteenTo: 441450 },
+      mfj: { zeroTo: 80000, fifteenTo: 496600 },
+      hoh: { zeroTo: 53600, fifteenTo: 469050 },
+    },
+    contributions: {
+      k401: 19500,
+      k401CatchUp: 6500, // increased from $6,000 in 2019
+      ira: 6000,
+      iraCatchUp: 1000,
+    },
+  },
+
+  2021: {
+    year: 2021,
+    // Numbers from training data — verify at:
+    // https://www.irs.gov/newsroom/irs-provides-tax-inflation-adjustments-for-tax-year-2021
+    sources: [
+      "https://www.irs.gov/newsroom/irs-provides-tax-inflation-adjustments-for-tax-year-2021",
+      "https://www.irs.gov/taxtopics/tc409",
+    ],
+    brackets: {
+      single: [
+        { floor: 0, ceiling: 9950, rate: 10 },
+        { floor: 9951, ceiling: 40525, rate: 12 },
+        { floor: 40526, ceiling: 86375, rate: 22 },
+        { floor: 86376, ceiling: 164925, rate: 24 },
+        { floor: 164926, ceiling: 209425, rate: 32 },
+        { floor: 209426, ceiling: 523600, rate: 35 },
+        { floor: 523601, ceiling: Infinity, rate: 37 },
+      ],
+      mfj: [
+        { floor: 0, ceiling: 19900, rate: 10 },
+        { floor: 19901, ceiling: 81050, rate: 12 },
+        { floor: 81051, ceiling: 172750, rate: 22 },
+        { floor: 172751, ceiling: 329850, rate: 24 },
+        { floor: 329851, ceiling: 418850, rate: 32 },
+        { floor: 418851, ceiling: 628300, rate: 35 },
+        { floor: 628301, ceiling: Infinity, rate: 37 },
+      ],
+      hoh: [
+        { floor: 0, ceiling: 14200, rate: 10 },
+        { floor: 14201, ceiling: 54200, rate: 12 },
+        { floor: 54201, ceiling: 86350, rate: 22 },
+        { floor: 86351, ceiling: 164900, rate: 24 },
+        { floor: 164901, ceiling: 209400, rate: 32 },
+        { floor: 209401, ceiling: 523600, rate: 35 },
+        { floor: 523601, ceiling: Infinity, rate: 37 },
+      ],
+    },
+    standardDeduction: { single: 12550, mfj: 25100, hoh: 18800 },
+    ltcg: {
+      single: { zeroTo: 40400, fifteenTo: 445850 },
+      mfj: { zeroTo: 80800, fifteenTo: 501600 },
+      hoh: { zeroTo: 54100, fifteenTo: 473750 },
+    },
+    contributions: {
+      k401: 19500,
+      k401CatchUp: 6500,
+      ira: 6000,
+      iraCatchUp: 1000,
+    },
+  },
+
+  2022: {
+    year: 2022,
+    // Numbers from training data — verify at:
+    // https://www.irs.gov/newsroom/irs-provides-tax-inflation-adjustments-for-tax-year-2022
+    sources: [
+      "https://www.irs.gov/newsroom/irs-provides-tax-inflation-adjustments-for-tax-year-2022",
+      "https://www.irs.gov/taxtopics/tc409",
+    ],
+    brackets: {
+      single: [
+        { floor: 0, ceiling: 10275, rate: 10 },
+        { floor: 10276, ceiling: 41775, rate: 12 },
+        { floor: 41776, ceiling: 89075, rate: 22 },
+        { floor: 89076, ceiling: 170050, rate: 24 },
+        { floor: 170051, ceiling: 215950, rate: 32 },
+        { floor: 215951, ceiling: 539900, rate: 35 },
+        { floor: 539901, ceiling: Infinity, rate: 37 },
+      ],
+      mfj: [
+        { floor: 0, ceiling: 20550, rate: 10 },
+        { floor: 20551, ceiling: 83550, rate: 12 },
+        { floor: 83551, ceiling: 178150, rate: 22 },
+        { floor: 178151, ceiling: 340100, rate: 24 },
+        { floor: 340101, ceiling: 431900, rate: 32 },
+        { floor: 431901, ceiling: 647850, rate: 35 },
+        { floor: 647851, ceiling: Infinity, rate: 37 },
+      ],
+      hoh: [
+        { floor: 0, ceiling: 14650, rate: 10 },
+        { floor: 14651, ceiling: 55900, rate: 12 },
+        { floor: 55901, ceiling: 89050, rate: 22 },
+        { floor: 89051, ceiling: 170050, rate: 24 },
+        { floor: 170051, ceiling: 215950, rate: 32 },
+        { floor: 215951, ceiling: 539900, rate: 35 },
+        { floor: 539901, ceiling: Infinity, rate: 37 },
+      ],
+    },
+    standardDeduction: { single: 12950, mfj: 25900, hoh: 19400 },
+    ltcg: {
+      single: { zeroTo: 41675, fifteenTo: 459750 },
+      mfj: { zeroTo: 83350, fifteenTo: 517200 },
+      hoh: { zeroTo: 55800, fifteenTo: 488500 },
+    },
+    contributions: {
+      k401: 20500,
+      k401CatchUp: 6500,
+      ira: 6000,
+      iraCatchUp: 1000,
+    },
+  },
+
+  2023: {
+    year: 2023,
+    // Numbers from training data — verify at:
+    // https://www.irs.gov/newsroom/irs-provides-tax-inflation-adjustments-for-tax-year-2023
+    sources: [
+      "https://www.irs.gov/newsroom/irs-provides-tax-inflation-adjustments-for-tax-year-2023",
+      "https://www.irs.gov/taxtopics/tc409",
+    ],
+    brackets: {
+      single: [
+        { floor: 0, ceiling: 11000, rate: 10 },
+        { floor: 11001, ceiling: 44725, rate: 12 },
+        { floor: 44726, ceiling: 95375, rate: 22 },
+        { floor: 95376, ceiling: 182050, rate: 24 },
+        { floor: 182051, ceiling: 231250, rate: 32 },
+        { floor: 231251, ceiling: 578125, rate: 35 },
+        { floor: 578126, ceiling: Infinity, rate: 37 },
+      ],
+      mfj: [
+        { floor: 0, ceiling: 22000, rate: 10 },
+        { floor: 22001, ceiling: 89450, rate: 12 },
+        { floor: 89451, ceiling: 190750, rate: 22 },
+        { floor: 190751, ceiling: 364200, rate: 24 },
+        { floor: 364201, ceiling: 462500, rate: 32 },
+        { floor: 462501, ceiling: 693750, rate: 35 },
+        { floor: 693751, ceiling: Infinity, rate: 37 },
+      ],
+      hoh: [
+        { floor: 0, ceiling: 15700, rate: 10 },
+        { floor: 15701, ceiling: 59850, rate: 12 },
+        { floor: 59851, ceiling: 95350, rate: 22 },
+        { floor: 95351, ceiling: 182050, rate: 24 },
+        { floor: 182051, ceiling: 231250, rate: 32 },
+        { floor: 231251, ceiling: 578100, rate: 35 },
+        { floor: 578101, ceiling: Infinity, rate: 37 },
+      ],
+    },
+    standardDeduction: { single: 13850, mfj: 27700, hoh: 20800 },
+    ltcg: {
+      single: { zeroTo: 44625, fifteenTo: 492300 },
+      mfj: { zeroTo: 89250, fifteenTo: 553850 },
+      hoh: { zeroTo: 59750, fifteenTo: 523050 },
+    },
+    contributions: {
+      k401: 22500, // large jump driven by high 2022 inflation
+      k401CatchUp: 7500, // SECURE 2.0 increased from $6,500 to $7,500 starting 2023
+      ira: 6500, // increased from $6,000
+      iraCatchUp: 1000,
+    },
+  },
+
   2024: {
     year: 2024,
     sources: [
