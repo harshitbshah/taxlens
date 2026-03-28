@@ -207,9 +207,9 @@ type ForecastResponse = {
 
 ---
 
-## Phase 5 — Retroactive insights per year (stretch)
+## ~~Phase 5 — Retroactive insights per year~~ ✓ Done 2026-03-28
 
-Add an "Insights" section to the existing **By Year** view — what you could have done differently in that specific year.
+Added InsightsPanel to the **By Year** receipt tab — what you could have done differently in that specific year.
 
 **Examples:**
 - "You were $8,200 into the 22% bracket — $8,200 more in 401k would have kept you in 12%"

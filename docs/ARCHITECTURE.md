@@ -1,6 +1,6 @@
 # Architecture
 
-Last updated: 2026-03-28
+Last updated: 2026-03-28 (Phase 5)
 
 ---
 
@@ -28,7 +28,9 @@ Bun server (src/index.ts)   idleTimeout: 120s (Claude calls take 30–90s)
     ├── POST /api/india/parse       → Sonnet: parse ITR PDF → IndianTaxReturn
     ├── GET  /api/forecast          → cached ForecastResponse (404 if none)
     ├── POST /api/forecast          → Sonnet: generate + cache ForecastResponse
-    └── POST /api/clear-data        → wipe all returns + forecast cache
+    ├── GET  /api/insights?year=N   → cached InsightItem[] for year N (404 if none)
+    ├── POST /api/insights?year=N   → Sonnet: generate + cache InsightItem[] for year N
+    └── POST /api/clear-data        → wipe all returns + forecast + insights cache
     │
     ├── src/lib/parser.ts           → US return parsing (two-pass Sonnet)
     ├── src/lib/india-parser.ts     → India ITR parsing (Haiku detect + Sonnet extract)
@@ -36,7 +38,9 @@ Bun server (src/index.ts)   idleTimeout: 120s (Claude calls take 30–90s)
     ├── src/lib/india-storage.ts    → India returns (flat JSON)
     ├── src/lib/pdf-utils.ts        → Java-serialized PDF unwrapping
     ├── src/lib/forecaster.ts       → buildForecastPrompt + parseForecastResponse + generateForecast
-    └── src/lib/forecast-cache.ts   → forecast JSON cache (.forecast-cache.json)
+    ├── src/lib/forecast-cache.ts   → forecast JSON cache (.forecast-cache.json)
+    ├── src/lib/insights.ts         → buildInsightsPrompt + parseInsightsResponse + generateInsights
+    └── src/lib/insights-cache.ts   → per-year insights JSON cache (.insights-cache.json)
 ```
 
 ---
@@ -88,6 +92,23 @@ Subsequent page loads
   → network error → show error with "Try again" (NOT silently empty — cache may exist)
 ```
 
+### Insights (per-year)
+```
+"Generate →" click on InsightsPanel (By Year / receipt tab)
+  → InsightsPanel.tsx: POST /api/insights?year=N
+  → insights.ts: buildInsightsPrompt() — selected year in full + other years as compact context
+                                        + India ITR for matching FY if present
+  → Claude Sonnet: returns InsightItem[] JSON
+  → parseInsightsResponse(): strips fences, normalizes category enum
+  → insights-cache.ts: writes to .insights-cache.json[year]
+
+Subsequent year visits
+  → InsightsPanel.tsx: GET /api/insights?year=N on mount
+  → 200 + cached items → show insight cards
+  → 404 → show "Generate →" idle state
+  → error → show error with "Try again"
+```
+
 ---
 
 ## Storage
@@ -97,12 +118,13 @@ Subsequent page loads
 | US tax returns | `.tax-returns.json` | JSON keyed by year, Zod-validated |
 | India tax returns | `.india-tax-returns.json` | JSON keyed by FY, Zod-validated |
 | Forecast cache | `.forecast-cache.json` | JSON, single ForecastResponse |
+| Insights cache | `.insights-cache.json` | JSON, Record<year, InsightItem[]> |
 | Chat history | localStorage | Per-session, browser-only |
 | API key | `.env` (ANTHROPIC_API_KEY) | Never committed |
 
-All files are gitignored. `.tax-returns.json` and `.india-tax-returns.json` are the source of truth — the forecast cache is derived and can be regenerated at any time.
+All files are gitignored. `.tax-returns.json` and `.india-tax-returns.json` are the source of truth — all caches are derived and can be regenerated at any time. `/api/clear-data` wipes returns + all caches.
 
-Phase 4 (deferred): upgrade forecast cache to `bun:sqlite` for per-year forecast history. Current flat JSON is sufficient for single-forecast-per-user use case.
+Phase 4 (deferred): upgrade caches to `bun:sqlite` for richer query/history. Current flat JSON is sufficient.
 
 ---
 
@@ -122,6 +144,7 @@ src/components/
   RiskFlags.tsx                 risk flags sorted high-before-medium
   IndiaRegimeCard.tsx           old vs new regime comparison
   ForecastChatStrip.tsx         chat invite at bottom of forecast view
+  InsightsPanel.tsx             per-year retroactive insights (state machine: idle/loading/generating/loaded/error)
   SummaryTable.tsx              US all-years table
   SummaryCharts.tsx             US multi-year charts (recharts)
   SummaryReceiptView.tsx        US summary receipt style
@@ -147,6 +170,7 @@ Navigation: left sidebar (192px) with Views section (Summary / By Year / Forecas
 | Chat | claude-sonnet-4-6 | Quality responses, year-aware |
 | Follow-up suggestions | claude-haiku-4-5 | Fast, structured output |
 | Forecast generation | claude-sonnet-4-6 | Multi-year reasoning, structured output |
+| Per-year insights | claude-sonnet-4-6 | Bracket math + actionable tax optimization |
 
 ---
 
@@ -155,7 +179,7 @@ Navigation: left sidebar (192px) with Views section (Summary / By Year / Forecas
 Test files live alongside source. Run: `bun test --testPathPattern="src/"`
 
 ```
-Unit tests (138 passing):
+Unit tests (154 passing):
   src/App.test.ts                    nav/selection logic
   src/index.test.ts                  server config regressions (idleTimeout, route format)
   src/lib/nav.test.ts                buildUsNavItems, buildIndiaNavItems, getDefault*, parseSelectedId (24)
@@ -168,6 +192,7 @@ Unit tests (138 passing):
   src/lib/time-units.test.ts         time unit conversions
   src/lib/forecaster.test.ts         buildForecastPrompt (6), parseForecastResponse (11)
   src/lib/forecast-cache.test.ts     getForecastCache, saveForecastCache, clearForecastCache (10)
+  src/lib/insights.test.ts           buildInsightsPrompt (8), parseInsightsResponse (8)
   src/components/ForecastComponents.test.ts  computeFillPercent (7), confidenceBadgeClass (3), sortedByHighFirst (5)
 ```
 
@@ -193,8 +218,11 @@ Claude reliably missed `federal.refundOrOwed` in real data (caught an $18,682 om
 **Why idleTimeout: 120 on the Bun server?**
 Bun's default idle timeout is 10 seconds. Claude Sonnet calls (forecast generation, PDF parsing) take 30–90 seconds. Without this, the server drops the connection mid-call with an empty reply.
 
-**Why a single async function handler for /api/forecast instead of `{ GET, POST }`?**
-Bun's `/*` SPA wildcard intercepts GET requests before the `{ GET: ... }` method object can handle them, returning the HTML page instead. A single function handler that branches on `req.method` bypasses this routing conflict.
+**Why a single async function handler for /api/forecast and /api/insights instead of `{ GET, POST }`?**
+Bun's `/*` SPA wildcard intercepts GET requests before both `{ GET: ... }` method objects AND parameterized routes (`:year`) can handle them, returning the HTML page instead. A single function handler at a literal path bypasses this. For dynamic segments, pass values as query params (`?year=N`) rather than path params (`:year`).
+
+**Why `/api/insights?year=N` instead of `/api/insights/:year`?**
+Parameterized routes lose to the `/*` SPA wildcard for GET requests in Bun, same as method-object routes. Literal paths always win. Year as query param is equally readable and avoids the conflict.
 
 **Why not silently show empty state on forecast GET failure?**
 If the server is briefly unreachable (restart, deploy), the component would show "Generate Forecast" instead of an error — causing the user to accidentally regenerate and overwrite the cached forecast. Errors should always be surfaced so the user can retry.

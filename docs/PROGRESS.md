@@ -4,6 +4,30 @@ One entry per checkpoint. Most recent first.
 
 ---
 
+## 2026-03-28 (Phase 5: per-year retroactive insights + routing fix)
+
+**Done:**
+- **Phase 5: InsightsPanel on By Year view** — retroactive "what could you have done differently" analysis per year
+  - `src/lib/insights.ts` — `InsightItem` type (title, description, estimatedSaving?, category); `buildInsightsPrompt()` (selected year in full detail, other years as compact context, India ITR for matching FY); `parseInsightsResponse()` (strips code fences, normalizes category enum); `generateInsights()` (Claude Sonnet, max_tokens 1024)
+  - `src/lib/insights-cache.ts` — per-year JSON cache at `.insights-cache.json` keyed by year string; `getInsightsCache(year)` / `saveInsightsCache(year, items)` / `clearInsightsCache()`; same Bun.file pattern as forecast cache
+  - `GET/POST /api/insights?year=N` endpoint — single function handler (literal path, not parameterized); `clearInsightsCache()` wired into `/api/clear-data`
+  - `src/components/InsightsPanel.tsx` — state machine (idle/loading/generating/loaded/error); insight cards with category icons (🏦📉🇮🇳🏠💼) and green savings badges; Generate and Regenerate buttons; shown below ReceiptView on receipt tab
+  - `src/lib/insights.test.ts` — 16 unit tests: `buildInsightsPrompt` (8), `parseInsightsResponse` (8)
+- **Bug fix: `/api/insights/:year` GET returned HTML** — parameterized routes lose to `/*` SPA wildcard for GET, same as method-object routes. Fix: changed route to literal `/api/insights` with `?year=N` query param.
+
+**Decisions:**
+- Literal paths always beat `/*` SPA wildcard in Bun; parameterized routes do not. Rule: any route that needs GET must use a literal path. Dynamic values go in query params.
+- India ITR matched to US year by `financialYear === year || financialYear === year - 1` (FY 2022-23 = India tax year 2022 ≈ US calendar year 2023).
+- Sonnet (not Haiku) for insights: bracket math and quantitative optimization require reasoning, not just extraction.
+
+**Tests:** 154 pass (138 + 16 new insights tests)
+
+**Known gaps:** InsightsPanel fetch state machine not tested with DOM mocks (same gap as ForecastView).
+
+**Next:** Phase 4 (SQLite caches, deferred) or new features from FEATURES.md.
+
+---
+
 ## 2026-03-28 (Bug-fix session: idleTimeout, routing, silent catch + regression tests)
 
 **Done:**
