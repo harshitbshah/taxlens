@@ -1,6 +1,7 @@
 import { useEffect, useState } from "react";
 
 import type { InsightItem } from "../lib/insights";
+import { getTaxConstants } from "../lib/tax-constants";
 
 const CATEGORY_ICONS: Record<InsightItem["category"], string> = {
   retirement: "🏦",
@@ -20,6 +21,26 @@ type State =
   | { status: "generating" }
   | { status: "loaded"; items: InsightItem[] }
   | { status: "error"; message: string };
+
+function ConstantsBadge({ year }: { year: number }) {
+  const verified = getTaxConstants(year) !== null;
+  return (
+    <span
+      className={
+        verified
+          ? "rounded bg-emerald-50 px-1.5 py-0.5 text-[11px] font-medium text-emerald-700 dark:bg-emerald-950/60 dark:text-emerald-400"
+          : "rounded bg-amber-50 px-1.5 py-0.5 text-[11px] font-medium text-amber-700 dark:bg-amber-950/60 dark:text-amber-400"
+      }
+      title={
+        verified
+          ? `Verified IRS constants on file for ${year}`
+          : `No verified IRS constants on file for ${year} — Claude will use training data`
+      }
+    >
+      {verified ? `✓ ${year} verified` : `⚠ ${year} unverified`}
+    </span>
+  );
+}
 
 function InsightCard({ item }: { item: InsightItem }) {
   return (
@@ -96,8 +117,9 @@ export function InsightsPanel({ year }: Props) {
   if (state.status === "generating") {
     return (
       <div className="mx-auto max-w-2xl px-4 py-4 md:px-0">
-        <div className="rounded-lg border border-(--color-border) bg-(--color-bg) p-5 text-center">
+        <div className="flex items-center justify-between rounded-lg border border-(--color-border) bg-(--color-bg) p-5">
           <p className="text-xs text-(--color-text-muted)">Analyzing {year} return…</p>
+          <ConstantsBadge year={year} />
         </div>
       </div>
     );
@@ -128,6 +150,9 @@ export function InsightsPanel({ year }: Props) {
             <p className="mt-0.5 text-xs text-(--color-text-muted)">
               What you could have done differently to reduce your tax bill
             </p>
+            <div className="mt-2">
+              <ConstantsBadge year={year} />
+            </div>
           </div>
           <button
             onClick={generate}
@@ -144,9 +169,12 @@ export function InsightsPanel({ year }: Props) {
   return (
     <div className="mx-auto max-w-2xl px-4 py-4 md:px-0">
       <div className="flex items-center justify-between pb-3">
-        <p className="text-xs font-semibold tracking-widest text-(--color-text-muted) uppercase">
-          {year} Insights
-        </p>
+        <div className="flex items-center gap-2">
+          <p className="text-xs font-semibold tracking-widest text-(--color-text-muted) uppercase">
+            {year} Insights
+          </p>
+          <ConstantsBadge year={year} />
+        </div>
         <button
           onClick={generate}
           className="cursor-pointer rounded-md border border-(--color-border) px-2.5 py-1 text-xs text-(--color-text-muted) transition-colors hover:bg-(--color-bg-muted) hover:text-(--color-text)"

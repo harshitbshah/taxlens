@@ -1,6 +1,7 @@
 import type { ForecastState } from "../App";
 import { formatCurrency, formatPercent } from "../lib/format";
 import type { TaxReturn } from "../lib/schema";
+import { getTaxConstants } from "../lib/tax-constants";
 import { ActionItemsCard } from "./ActionItemsCard";
 import { AssumptionsCard } from "./AssumptionsCard";
 import { BracketBar } from "./BracketBar";
@@ -52,6 +53,30 @@ function MetricCard({
   );
 }
 
+function ConstantsStatus({ years }: { years: number[] }) {
+  if (years.length === 0) return null;
+  return (
+    <div className="flex flex-wrap items-center gap-1.5">
+      <span className="text-[11px] text-(--color-text-muted)">IRS constants:</span>
+      {years.map((y) => {
+        const verified = getTaxConstants(y) !== null;
+        return (
+          <span
+            key={y}
+            className={
+              verified
+                ? "rounded bg-emerald-50 px-1.5 py-0.5 text-[11px] font-medium text-emerald-700 dark:bg-emerald-950/60 dark:text-emerald-400"
+                : "rounded bg-amber-50 px-1.5 py-0.5 text-[11px] font-medium text-amber-700 dark:bg-amber-950/60 dark:text-amber-400"
+            }
+          >
+            {verified ? "✓" : "⚠"} {y}
+          </span>
+        );
+      })}
+    </div>
+  );
+}
+
 function GeneratingDots() {
   return (
     <div className="flex items-center gap-1.5">
@@ -68,6 +93,11 @@ function GeneratingDots() {
 
 export function ForecastView({ returns, forecastState: state, onGenerate, onToggleChat }: Props) {
   const yearCount = Object.keys(returns).length;
+  const historyYears = Object.keys(returns)
+    .map(Number)
+    .sort((a, b) => a - b);
+  const projectedYear = historyYears.length > 0 ? Math.max(...historyYears) + 1 : null;
+  const allForecastYears = projectedYear ? [...historyYears, projectedYear] : historyYears;
 
   if (state.status === "loading") {
     return (
@@ -82,6 +112,7 @@ export function ForecastView({ returns, forecastState: state, onGenerate, onTogg
       <div className="flex flex-1 flex-col items-center justify-center gap-4 text-(--color-text-muted)">
         <GeneratingDots />
         <p className="text-sm">Claude is analyzing {yearCount} years of tax history…</p>
+        <ConstantsStatus years={allForecastYears} />
       </div>
     );
   }
@@ -123,7 +154,7 @@ export function ForecastView({ returns, forecastState: state, onGenerate, onTogg
 
   // Loaded
   const { data } = state;
-  const { projectedYear, taxLiability, effectiveRate, estimatedOutcome, bracket } = data;
+  const { taxLiability, effectiveRate, estimatedOutcome, bracket } = data;
 
   const outcomeSign = estimatedOutcome.value >= 0 ? "+" : "";
   const outcomeBadge =
@@ -137,10 +168,15 @@ export function ForecastView({ returns, forecastState: state, onGenerate, onTogg
         {/* Header */}
         <div className="flex items-start justify-between">
           <div>
-            <h1 className="text-xl font-semibold text-(--color-text)">{projectedYear} Forecast</h1>
+            <h1 className="text-xl font-semibold text-(--color-text)">
+              {data.projectedYear} Forecast
+            </h1>
             <p className="mt-0.5 text-xs text-(--color-text-muted)">
               AI-generated from {yearCount} years of tax history · Powered by Claude Sonnet
             </p>
+            <div className="mt-2">
+              <ConstantsStatus years={[...historyYears, data.projectedYear]} />
+            </div>
           </div>
           <button
             onClick={() => onGenerate(true)}
