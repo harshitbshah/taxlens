@@ -15,6 +15,7 @@ import { UploadModal } from "./components/UploadModal";
 import { sampleReturns } from "./data/sampleData";
 import { isElectron } from "./lib/electron";
 import { getDevDemoOverride, isHostedEnvironment, resolveDemoMode } from "./lib/env";
+import type { ForecastResponse } from "./lib/forecaster";
 import {
   buildIndiaNavItems,
   buildUsNavItems,
@@ -36,6 +37,13 @@ export type UpdateStatus = "available" | "downloading" | "ready";
 export type ActiveCountry = "us" | "india";
 // SelectedView is re-exported from nav.ts for external use
 export type { SelectedView };
+
+export type ForecastState =
+  | { status: "loading" }
+  | { status: "empty" }
+  | { status: "generating" }
+  | { status: "loaded"; data: ForecastResponse }
+  | { status: "error"; message: string };
 
 function useElectronUpdater(devOverride: UpdateStatus | null) {
   const [status, setStatus] = useState<UpdateStatus | null>(null);
@@ -179,6 +187,7 @@ export function App() {
     isDemo: isHostedEnvironment(),
     isDev: false,
   });
+  const [forecastState, setForecastState] = useState<ForecastState>({ status: "loading" });
   const [devDemoOverride, setDevDemoOverride] = useState<boolean | null>(getDevDemoOverride);
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [pendingFiles, setPendingFiles] = useState<File[]>([]);
@@ -261,6 +270,53 @@ export function App() {
     window.addEventListener("resize", checkMobile);
     return () => window.removeEventListener("resize", checkMobile);
   }, []);
+
+  useEffect(() => {
+    fetch("/api/forecast")
+      .then(async (res) => {
+        if (res.status === 404) {
+          setForecastState({ status: "empty" });
+        } else if (res.ok) {
+          const data = (await res.json()) as ForecastResponse;
+          setForecastState({ status: "loaded", data });
+        } else {
+          setForecastState({
+            status: "error",
+            message: `Failed to load forecast (HTTP ${res.status})`,
+          });
+        }
+      })
+      .catch((err) => {
+        const message = err instanceof Error ? err.message : "Could not reach server";
+        setForecastState({ status: "error", message });
+      });
+  }, []);
+
+  async function handleGenerateForecast(regenerate = false) {
+    setForecastState({ status: "generating" });
+    try {
+      const res = await fetch("/api/forecast", { method: "POST" });
+      if (!res.ok) {
+        let message = `Server error ${res.status}`;
+        try {
+          const body = (await res.json()) as { error?: string };
+          if (body.error) message = body.error;
+        } catch {
+          // non-JSON error body — use status code message
+        }
+        setForecastState({ status: "error", message });
+        return;
+      }
+      const data = (await res.json()) as ForecastResponse;
+      setForecastState({ status: "loaded", data });
+    } catch (err) {
+      const message = err instanceof Error ? err.message : "Network error — is the server running?";
+      setForecastState({
+        status: "error",
+        message: regenerate ? `Regeneration failed: ${message}` : message,
+      });
+    }
+  }
 
   useEffect(() => {
     localStorage.setItem(CHAT_OPEN_KEY, String(isChatOpen));
@@ -648,6 +704,8 @@ export function App() {
       return (
         <MainPanel
           view="forecast"
+          forecastState={forecastState}
+          onGenerateForecast={handleGenerateForecast}
           onToggleChat={() => setIsChatOpen(!isChatOpen)}
           {...commonProps}
         />

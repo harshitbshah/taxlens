@@ -1,6 +1,4 @@
-import { useEffect, useState } from "react";
-
-import type { ForecastResponse } from "../lib/forecaster";
+import type { ForecastState } from "../App";
 import { formatCurrency, formatPercent } from "../lib/format";
 import type { TaxReturn } from "../lib/schema";
 import { ActionItemsCard } from "./ActionItemsCard";
@@ -12,15 +10,10 @@ import { RiskFlags } from "./RiskFlags";
 
 interface Props {
   returns: Record<number, TaxReturn>;
+  forecastState: ForecastState;
+  onGenerate: (regenerate?: boolean) => void;
   onToggleChat?: () => void;
 }
-
-type State =
-  | { status: "loading" }
-  | { status: "empty" }
-  | { status: "generating" }
-  | { status: "loaded"; data: ForecastResponse }
-  | { status: "error"; message: string };
 
 function MetricCard({
   label,
@@ -73,56 +66,7 @@ function GeneratingDots() {
   );
 }
 
-export function ForecastView({ returns, onToggleChat }: Props) {
-  const [state, setState] = useState<State>({ status: "loading" });
-
-  useEffect(() => {
-    fetch("/api/forecast")
-      .then(async (res) => {
-        if (res.status === 404) {
-          setState({ status: "empty" });
-        } else if (res.ok) {
-          const data = (await res.json()) as ForecastResponse;
-          setState({ status: "loaded", data });
-        } else {
-          setState({ status: "error", message: `Failed to load forecast (HTTP ${res.status})` });
-        }
-      })
-      .catch((err) => {
-        // Don't silently show empty — the cache may exist but the server was briefly unreachable.
-        // Showing the error lets the user retry rather than accidentally regenerating.
-        const message = err instanceof Error ? err.message : "Could not reach server";
-        setState({ status: "error", message });
-      });
-  }, []);
-
-  async function generate(regenerate = false) {
-    setState({ status: "generating" });
-    try {
-      const res = await fetch("/api/forecast", { method: "POST" });
-      if (!res.ok) {
-        let message = `Server error ${res.status}`;
-        try {
-          const body = (await res.json()) as { error?: string };
-          if (body.error) message = body.error;
-        } catch {
-          // non-JSON error body (e.g. "Method Not Allowed") — use status code message
-        }
-        setState({ status: "error", message });
-        return;
-      }
-      const data = (await res.json()) as ForecastResponse;
-      setState({ status: "loaded", data });
-    } catch (err) {
-      // Network error or server closed connection (e.g. timeout before idleTimeout was raised)
-      const message = err instanceof Error ? err.message : "Network error — is the server running?";
-      setState({
-        status: "error",
-        message: regenerate ? `Regeneration failed: ${message}` : message,
-      });
-    }
-  }
-
+export function ForecastView({ returns, forecastState: state, onGenerate, onToggleChat }: Props) {
   const yearCount = Object.keys(returns).length;
 
   if (state.status === "loading") {
@@ -147,7 +91,7 @@ export function ForecastView({ returns, onToggleChat }: Props) {
       <div className="flex flex-1 flex-col items-center justify-center gap-3 text-(--color-text-muted)">
         <p className="text-sm font-medium text-rose-600 dark:text-rose-400">{state.message}</p>
         <button
-          onClick={() => generate()}
+          onClick={() => onGenerate()}
           className="cursor-pointer rounded-md border border-(--color-border) px-4 py-2 text-sm transition-colors hover:bg-(--color-bg-muted)"
         >
           Try again
@@ -168,7 +112,7 @@ export function ForecastView({ returns, onToggleChat }: Props) {
           </p>
         </div>
         <button
-          onClick={() => generate()}
+          onClick={() => onGenerate()}
           className="cursor-pointer rounded-lg bg-indigo-600 px-5 py-2.5 text-sm font-medium text-white transition-colors hover:bg-indigo-700"
         >
           Generate Forecast →
@@ -199,7 +143,7 @@ export function ForecastView({ returns, onToggleChat }: Props) {
             </p>
           </div>
           <button
-            onClick={() => generate(true)}
+            onClick={() => onGenerate(true)}
             className="cursor-pointer rounded-md border border-(--color-border) px-3 py-1.5 text-xs text-(--color-text-muted) transition-colors hover:bg-(--color-bg-muted) hover:text-(--color-text)"
           >
             ⟳ Regenerate

@@ -1,6 +1,6 @@
 import { useState } from "react";
 
-import type { ActiveCountry } from "../App";
+import type { ActiveCountry, ForecastState } from "../App";
 import { cn } from "../lib/cn";
 import type { IndianTaxReturn, PendingUpload, TaxReturn } from "../lib/schema";
 import { ForecastView } from "./ForecastView";
@@ -36,6 +36,8 @@ interface SummaryProps extends CommonProps {
 
 interface ForecastProps extends CommonProps {
   view: "forecast";
+  forecastState: ForecastState;
+  onGenerateForecast: (regenerate?: boolean) => Promise<void>;
   onToggleChat?: () => void;
 }
 
@@ -189,7 +191,12 @@ export function MainPanel(props: Props) {
           )}
         </div>
       ) : props.view === "forecast" ? (
-        <ForecastView returns={props.returns} onToggleChat={props.onToggleChat} />
+        <ForecastView
+          returns={props.returns}
+          forecastState={props.forecastState}
+          onGenerate={props.onGenerateForecast}
+          onToggleChat={props.onToggleChat}
+        />
       ) : null}
     </div>
   );
