@@ -45,7 +45,7 @@ export function InsightsPanel({ year }: Props) {
 
   useEffect(() => {
     setState({ status: "loading" });
-    fetch(`/api/insights/${year}`)
+    fetch(`/api/insights?year=${year}`)
       .then(async (res) => {
         if (res.status === 404) {
           setState({ status: "idle" });
@@ -65,7 +65,7 @@ export function InsightsPanel({ year }: Props) {
   async function generate() {
     setState({ status: "generating" });
     try {
-      const res = await fetch(`/api/insights/${year}`, { method: "POST" });
+      const res = await fetch(`/api/insights?year=${year}`, { method: "POST" });
       if (!res.ok) {
         let message = `Server error ${res.status}`;
         try {

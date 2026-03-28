@@ -343,10 +343,12 @@ const routes: Record<string, any> = {
       }
     },
   },
-  // Same single-function-handler pattern as /api/forecast to avoid /* SPA wildcard conflict.
-  "/api/insights/:year": async (req: Request & { params: { year: string } }) => {
-    const year = Number(req.params.year);
-    if (isNaN(year)) return Response.json({ error: "Invalid year" }, { status: 400 });
+  // Literal path (not parameterized) so Bun's /* SPA wildcard doesn't intercept GET requests.
+  // Year is passed as a query param: GET/POST /api/insights?year=2024
+  "/api/insights": async (req: Request) => {
+    const url = new URL(req.url);
+    const year = Number(url.searchParams.get("year"));
+    if (isNaN(year) || year === 0) return Response.json({ error: "Invalid year" }, { status: 400 });
 
     if (req.method === "GET") {
       const cached = await getInsightsCache(year);
