@@ -4,6 +4,29 @@ One entry per checkpoint. Most recent first.
 
 ---
 
+## 2026-03-28 (Bug-fix session: idleTimeout, routing, silent catch + regression tests)
+
+**Done:**
+- **Bug: `idleTimeout` too short** — Bun default is 10s; Claude Sonnet calls take 30–90s. Server dropped connection mid-call with "empty reply", showing "Forecast failed". Fix: added `idleTimeout: 120` to `Bun.serve()` config.
+- **Bug: `{ GET, POST }` route object conflicts with `/*` SPA wildcard** — Bun's SPA catch-all intercepts GET before the method-object route, returning the HTML page. POST returned 405 with a non-JSON body, causing the JSON-parse in the error handler to throw, triggering the outer catch with a generic message. Fix: changed `/api/forecast` to a single `async (req)` function handler that branches on `req.method`.
+- **Bug: silent catch hid cached forecast on server restart** — `ForecastView` `.catch()` called `setState({ status: "empty" })`, showing "Generate Forecast" when the server was briefly unreachable. User could click Generate and overwrite the cached forecast. Fix: catch now surfaces the real error (`setState({ status: "error", message })`).
+- **Bug: `forecast-cache.test.ts` was hitting the real cache file** — setting `process.env.TAX_UI_DATA_DIR` at test-file scope is too late (ESM hoisting initializes the module before the env var is set). Fix: removed the env redirect; added `beforeEach(clearForecastCache)` + `afterEach(clearForecastCache)`.
+- **Bug: `src/index.test.ts` regex parse error** — regex literal `/"/api\/forecast":.../` treated the `"` before the slash as an invalid flag. Fix: used string `indexOf` + `slice` instead of a regex with embedded quotes.
+- **Regression tests added** (`src/index.test.ts`): `idleTimeout > 10`, forecast route uses function handler (not method-object).
+- **Cache persistence** — `getForecastCache` / `saveForecastCache` / `clearForecastCache` confirmed working; forecast persists across page loads and server restarts until "Regenerate" is explicitly clicked.
+
+**Decisions:**
+- Error must always be shown on `GET /api/forecast` failure — never silently show "Generate Forecast", which would overwrite the cache on click.
+- `forecast-cache.test.ts` cleans up the real cache file rather than redirecting to a temp dir — simpler and avoids ESM hoisting race.
+
+**Tests:** 138 pass (128 + 10 cache tests + 2 regression tests in index.test.ts; counts include fixes to previously failing tests)
+
+**Known gaps:** no new gaps introduced.
+
+**Next:** Phase 4 (SQLite for per-year forecast history, deferred) or Phase 5 (per-year retroactive insights on By Year view — higher user value).
+
+---
+
 ## 2026-03-28 (Phase 3)
 
 **Done:**
