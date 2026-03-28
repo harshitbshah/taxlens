@@ -53,12 +53,16 @@ function MetricCard({
   );
 }
 
-function ConstantsStatus({ years }: { years: number[] }) {
+function ConstantsStatus({ years, warnOnly = false }: { years: number[]; warnOnly?: boolean }) {
   if (years.length === 0) return null;
+  const visibleYears = warnOnly ? years.filter((y) => getTaxConstants(y) === null) : years;
+  if (visibleYears.length === 0) return null;
   return (
     <div className="flex flex-wrap items-center gap-1.5">
-      <span className="text-[11px] text-(--color-text-muted)">IRS constants:</span>
-      {years.map((y) => {
+      <span className="text-[11px] text-(--color-text-muted)">
+        {warnOnly ? "Missing IRS constants:" : "IRS constants:"}
+      </span>
+      {visibleYears.map((y) => {
         const verified = getTaxConstants(y) !== null;
         return (
           <span
@@ -175,7 +179,7 @@ export function ForecastView({ returns, forecastState: state, onGenerate, onTogg
               AI-generated from {yearCount} years of tax history · Powered by Claude Sonnet
             </p>
             <div className="mt-2">
-              <ConstantsStatus years={[...historyYears, data.projectedYear]} />
+              <ConstantsStatus years={[...historyYears, data.projectedYear]} warnOnly />
             </div>
           </div>
           <button
