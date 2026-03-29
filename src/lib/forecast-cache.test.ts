@@ -142,15 +142,27 @@ describe("clearForecastCache", () => {
 });
 
 describe("backward compat: old single-ForecastResponse format", () => {
-  test("reads old root-level ForecastResponse as US forecast", async () => {
-    // Write the old format directly
+  test("discards old root-level ForecastResponse (stale prompt version)", async () => {
+    // Write the old format directly — root-level ForecastResponse with no __version
     await Bun.write(
       path.join(process.env.TAX_UI_DATA_DIR || process.cwd(), ".forecast-cache.json"),
       JSON.stringify(minimalForecast, null, 2),
     );
-    const result = await getForecastCache("us");
-    expect(result?.projectedYear).toBe(2025);
-    const indiaResult = await getForecastCache("india");
-    expect(indiaResult).toBeNull();
+    // Old format is treated as stale (version mismatch) — both countries return null
+    expect(await getForecastCache("us")).toBeNull();
+    expect(await getForecastCache("india")).toBeNull();
+  });
+
+  test("discards cache with mismatched __version", async () => {
+    await Bun.write(
+      path.join(process.env.TAX_UI_DATA_DIR || process.cwd(), ".forecast-cache.json"),
+      JSON.stringify({ __version: "0", us: minimalForecast }, null, 2),
+    );
+    expect(await getForecastCache("us")).toBeNull();
+  });
+
+  test("reads cache with current __version", async () => {
+    await saveForecastCache("us", minimalForecast);
+    expect((await getForecastCache("us"))?.projectedYear).toBe(2025);
   });
 });
