@@ -21,22 +21,36 @@ Tax return PDF parser using Claude API and Bun.
 - [`docs/FEATURES.md`](docs/FEATURES.md) — full feature backlog
 - [`docs/PROGRESS.md`](docs/PROGRESS.md) — session-by-session progress log
 - [`docs/ADDING_COUNTRY_CONSTANTS.md`](docs/ADDING_COUNTRY_CONSTANTS.md) — how to add tax constants for a new country
+- [`docs/ADDING_COUNTRY.md`](docs/ADDING_COUNTRY.md) — full guide to onboarding a new country (schema, parser, server plugin, client plugin, registration)
 - [`docs/HOSTING.md`](docs/HOSTING.md) — OCI hosting plan (deferred)
 
 ## Architecture
 
+### Country plugin system (added 2026-03-28)
+- `src/lib/country-registry.ts` — `CountryServerPlugin` (server-only: parsing, storage, AI) and `CountryClientPlugin` (browser-only: React components) interfaces
+- `src/countries/us/index.ts` + `views.tsx` — US server + client plugins
+- `src/countries/india/index.ts` + `views.tsx` — India server + client plugins
+- `src/countries/index.ts` — `SERVER_REGISTRY` (keyed by code, server-side)
+- `src/countries/views.ts` — `CLIENT_REGISTRY` (keyed by code, browser-side)
+- `src/lib/country-storage.ts` — generic storage using plugin.storageFile + schema + migrateReturn?
+- To add a new country: see `docs/ADDING_COUNTRY.md`
+
+### Server
+- `src/index.ts` — Bun.serve() routes. Generic `/api/:country/*` routes serve all registered countries. US legacy routes (`/api/returns`, `/api/parse`, `/api/extract-year`) kept for backward compat and first-time key setup.
+- `src/lib/storage.ts` — US returns + API key persistence; includes `migrate()` for old stored data (backfills missing array fields)
+- `src/lib/india-storage.ts` — still used by `scripts/import-india.ts` CLI; app routes use generic storage now
+
 ### US returns
-- `src/index.ts` — Bun.serve() routes
 - `src/lib/parser.ts` — Claude API PDF parsing (two-pass Sonnet, reconcile() post-validation)
-- `src/lib/storage.ts` — Local file persistence (`.tax-returns.json`)
-- `src/App.tsx` — React frontend entry
 
 ### India returns
 - `src/lib/india-parser.ts` — ITR parsing: Haiku form-type detection, single-pass for ITR-1, two-pass Sonnet for ITR-2+; proactive token budget (60s sliding window on actual response.usage) to prevent 429s
-- `src/lib/india-storage.ts` — Local file persistence (`.india-tax-returns.json`)
 - `src/lib/pdf-utils.ts` — `unwrapIfJavaSerialized()`: Indian IT portal wraps PDFs in Java object serialization (magic bytes `aced0005`); extracts real PDF by scanning for `%PDF`/`%%EOF`
 - `src/lib/prompt.ts` — ITR-1 and ITR-2 extraction prompts; ITR-1 has no capital gains, 3% cess ≤AY2018-19, 4% from AY2019-20
 - `scripts/import-india.ts` — CLI: parse India PDFs and save to `.india-tax-returns.json`
+
+### Frontend
+- `src/App.tsx` — React entry; `ActiveCountry = string`; `countryReturns: Record<string, Record<number, unknown>>` state; fetches all registered non-US countries on startup; `handleUploadCountryReturn(country, file)` / `handleDeleteCountryReturn(country, year)` generic handlers
 
 ### Tax constants
 - `src/lib/constants/` — per-country modules; each owns its type, data, getter, and prompt formatter

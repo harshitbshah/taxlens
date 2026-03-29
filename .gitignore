@@ -35,6 +35,10 @@ report.[0-9]_.[0-9]_.[0-9]_.[0-9]_.json
 
 # User data - sensitive
 .tax-returns.json
+.india-tax-returns.json
+.canada-tax-returns.json
+.insights-cache.json
+.forecast-cache.json
 .api-key
 
 # Claude Code local settings

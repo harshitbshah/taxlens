@@ -3,16 +3,16 @@ import { argv, serve } from "bun";
 import path from "path";
 import { fileURLToPath } from "url";
 
+import { SERVER_REGISTRY } from "./countries/index";
 import index from "./index.html";
+import {
+  clearCountryData,
+  deleteCountryReturn,
+  getCountryReturns,
+  saveCountryReturn,
+} from "./lib/country-storage";
 import { clearForecastCache, getForecastCache, saveForecastCache } from "./lib/forecast-cache";
 import { generateForecast } from "./lib/forecaster";
-import { extractIndianYearFromPdf, parseIndianReturn } from "./lib/india-parser";
-import {
-  clearIndiaData,
-  deleteIndiaReturn,
-  getIndiaReturns,
-  saveIndiaReturn,
-} from "./lib/india-storage";
 import { generateInsights } from "./lib/insights";
 import { clearInsightsCache, getInsightsCache, saveInsightsCache } from "./lib/insights-cache";
 import { extractYearFromPdf, parseTaxReturn } from "./lib/parser";
@@ -121,7 +121,12 @@ const routes: Record<string, any> = {
   "/api/clear-data": {
     POST: async () => {
       await clearAllData();
-      await clearIndiaData();
+      // Clear all registered country data (US is handled by clearAllData above)
+      await Promise.all(
+        Object.values(SERVER_REGISTRY)
+          .filter((p) => p.code !== "us")
+          .map((p) => clearCountryData(p)),
+      );
       await clearForecastCache();
       await clearInsightsCache();
       return Response.json({ success: true });
@@ -274,66 +279,67 @@ const routes: Record<string, any> = {
       }
     },
   },
-  "/api/india/returns": {
-    GET: async () => {
-      return Response.json(await getIndiaReturns());
+  // ── Generic country routes ────────────────────────────────────────────────
+  // Handles any registered country: /api/india/*, /api/canada/*, etc.
+  // US returns are served via the legacy /api/returns routes above for backward compat.
+  "/api/:country/returns": {
+    GET: async (req: Request & { params: { country: string } }) => {
+      const plugin = SERVER_REGISTRY[req.params.country];
+      if (!plugin) return Response.json({ error: "Unknown country" }, { status: 404 });
+      return Response.json(await getCountryReturns(plugin));
     },
   },
-  "/api/india/returns/:year": {
-    DELETE: async (req: Request & { params: { year: string } }) => {
+  "/api/:country/returns/:year": {
+    DELETE: async (req: Request & { params: { country: string; year: string } }) => {
+      const plugin = SERVER_REGISTRY[req.params.country];
+      if (!plugin) return Response.json({ error: "Unknown country" }, { status: 404 });
       const year = Number(req.params.year);
-      if (isNaN(year)) {
-        return Response.json({ error: "Invalid year" }, { status: 400 });
-      }
-      await deleteIndiaReturn(year);
+      if (isNaN(year)) return Response.json({ error: "Invalid year" }, { status: 400 });
+      await deleteCountryReturn(plugin, year);
       return Response.json({ success: true });
     },
   },
-  "/api/india/extract-year": {
-    POST: async (req: Request) => {
+  "/api/:country/extract-year": {
+    POST: async (req: Request & { params: { country: string } }) => {
+      const plugin = SERVER_REGISTRY[req.params.country];
+      if (!plugin) return Response.json({ error: "Unknown country" }, { status: 404 });
+
       const formData = await req.formData();
       const file = formData.get("pdf") as File | null;
-      if (!file) {
-        return Response.json({ error: "No PDF file provided" }, { status: 400 });
-      }
+      if (!file) return Response.json({ error: "No PDF file provided" }, { status: 400 });
 
       const apiKey = getApiKey();
-      if (!apiKey) {
-        return Response.json({ error: "No API key configured" }, { status: 400 });
-      }
+      if (!apiKey) return Response.json({ error: "No API key configured" }, { status: 400 });
 
       try {
-        const buffer = await file.arrayBuffer();
-        const base64 = Buffer.from(buffer).toString("base64");
-        const result = await extractIndianYearFromPdf(base64, apiKey);
-        return Response.json(result ?? { assessmentYear: null, financialYear: null });
+        const base64 = Buffer.from(await file.arrayBuffer()).toString("base64");
+        const result = await plugin.extractYearFromPdf(base64, apiKey);
+        return Response.json(result ?? null);
       } catch (error) {
-        console.error("India year extraction error:", error);
-        return Response.json({ assessmentYear: null, financialYear: null });
+        console.error(`${plugin.code} year extraction error:`, error);
+        return Response.json(null);
       }
     },
   },
-  "/api/india/parse": {
-    POST: async (req: Request) => {
+  "/api/:country/parse": {
+    POST: async (req: Request & { params: { country: string } }) => {
+      const plugin = SERVER_REGISTRY[req.params.country];
+      if (!plugin) return Response.json({ error: "Unknown country" }, { status: 404 });
+
       const formData = await req.formData();
       const file = formData.get("pdf") as File | null;
-      if (!file) {
-        return Response.json({ error: "No PDF file provided" }, { status: 400 });
-      }
+      if (!file) return Response.json({ error: "No PDF file provided" }, { status: 400 });
 
       const apiKey = getApiKey();
-      if (!apiKey) {
-        return Response.json({ error: "No API key configured" }, { status: 400 });
-      }
+      if (!apiKey) return Response.json({ error: "No API key configured" }, { status: 400 });
 
       try {
-        const buffer = await file.arrayBuffer();
-        const base64 = Buffer.from(buffer).toString("base64");
-        const indiaReturn = await parseIndianReturn(base64, apiKey);
-        await saveIndiaReturn(indiaReturn);
-        return Response.json(indiaReturn);
+        const base64 = Buffer.from(await file.arrayBuffer()).toString("base64");
+        const result = await plugin.parseReturn(base64, apiKey);
+        await saveCountryReturn(plugin, result);
+        return Response.json(result);
       } catch (error) {
-        console.error("India parse error:", error);
+        console.error(`${plugin.code} parse error:`, error);
         const message = error instanceof Error ? error.message : "Unknown error";
         if (isAuthError(message)) {
           await removeApiKey();
@@ -361,11 +367,20 @@ const routes: Record<string, any> = {
       if (!apiKey) return Response.json({ error: "No API key configured" }, { status: 400 });
 
       try {
-        const [usReturns, indiaReturns] = await Promise.all([getReturns(), getIndiaReturns()]);
+        const indiaPlugin = SERVER_REGISTRY["india"];
+        const [usReturns, indiaReturns] = await Promise.all([
+          getReturns(),
+          indiaPlugin ? getCountryReturns(indiaPlugin) : Promise.resolve({}),
+        ]);
         if (!usReturns[year]) {
           return Response.json({ error: `No return on file for year ${year}` }, { status: 404 });
         }
-        const items = await generateInsights(year, usReturns, indiaReturns, apiKey);
+        const items = await generateInsights(
+          year,
+          usReturns,
+          indiaReturns as Record<number, import("./lib/schema").IndianTaxReturn>,
+          apiKey,
+        );
         await saveInsightsCache(year, items);
         return Response.json(items);
       } catch (error) {
@@ -392,13 +407,24 @@ const routes: Record<string, any> = {
       }
 
       try {
-        const [usReturns, indiaReturns] = await Promise.all([getReturns(), getIndiaReturns()]);
+        // Load returns for all registered countries in parallel
+        const plugins = Object.values(SERVER_REGISTRY);
+        const returnsList = await Promise.all(
+          plugins.map((p) => (p.code === "us" ? getReturns() : getCountryReturns(p))),
+        );
+        const allReturns: Record<string, Record<number, unknown>> = {};
+        for (let i = 0; i < plugins.length; i++) {
+          allReturns[plugins[i]!.code] = returnsList[i]!;
+        }
 
-        if (Object.keys(usReturns).length === 0 && Object.keys(indiaReturns).length === 0) {
+        const activePlugins = plugins.filter(
+          (p) => Object.keys(allReturns[p.code] ?? {}).length > 0,
+        );
+        if (activePlugins.length === 0) {
           return Response.json({ error: "No tax returns on file" }, { status: 400 });
         }
 
-        const forecast = await generateForecast(usReturns, indiaReturns, apiKey);
+        const forecast = await generateForecast(allReturns, activePlugins, apiKey);
         await saveForecastCache(forecast);
         return Response.json(forecast);
       } catch (error) {

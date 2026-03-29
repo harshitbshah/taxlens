@@ -19,6 +19,8 @@ export interface CountryServerPlugin {
   // ── Storage ─────────────────────────────────────────────────────────────────
   storageFile: string; // ".tax-returns.json"
   schema: ZodSchema; // Zod schema used to validate parsed returns at rest
+  // Optional pre-validation migration (e.g. backfilling missing array fields in old US data).
+  migrateReturn?: (raw: unknown) => unknown;
 
   // ── Year handling ────────────────────────────────────────────────────────────
   // Extract the canonical storage key from a return object.

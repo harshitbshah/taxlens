@@ -4,6 +4,54 @@ One entry per checkpoint. Most recent first.
 
 ---
 
+## 2026-03-28 (Country-agnostic plugin architecture — Phases 1–4)
+
+**Done:**
+
+**Phase 1 — Plugin registry (purely additive):**
+- **`src/lib/country-registry.ts`** — `CountryServerPlugin` (Bun/AI side) and `CountryClientPlugin` (React side) interfaces. Server plugin: code/name/flag/currency, storageFile, schema, migrateReturn?, getYear, yearLabel, summaryLabel, parseReturn, extractYearFromPdf, buildYearSummary, constants?, forecast?. Client plugin: same identity + year fields, components (YearReceipt, YearCharts, SummaryView, SummaryCharts, SummaryReceipt?), forecast?.ExtensionCard.
+- **`src/countries/us/index.ts`** — `usServerPlugin` wrapping existing US parser/constants/schema + `migrateReturn` (backfills missing array fields for old stored data).
+- **`src/countries/us/views.tsx`** — `usClientPlugin` wrapping ReceiptView, YearCharts, SummaryTable, SummaryCharts, SummaryReceiptView; `UsBracketCard` forecast extension.
+- **`src/countries/india/index.ts`** — `indiaServerPlugin` wrapping india-parser/constants/schema.
+- **`src/countries/india/views.tsx`** — `indiaClientPlugin` wrapping IndiaReceiptView, IndiaYearCharts, IndiaSummaryView, IndiaSummaryCharts; `IndiaForecastCard` extension.
+- **`src/countries/index.ts`** — `SERVER_REGISTRY` keyed by code; `REGISTERED_COUNTRIES` array.
+- **`src/countries/views.ts`** — `CLIENT_REGISTRY` keyed by code.
+
+**Phase 2 — Frontend consumers migrated to registry:**
+- **`src/lib/nav.ts`** — generic `buildNavItems(returns, { yearLabel, summaryLabel })` and `getDefaultSelection(returns)`; old per-country wrappers kept as thin delegates.
+- **`src/components/Sidebar.tsx`** — `hasIndiaData: boolean` replaced with `activeCountries: string[]`; country toggle loops `CLIENT_REGISTRY` filtered to active codes; any registered country auto-appears.
+- **`src/components/MainPanel.tsx`** — `view: "india"` and `IndiaProps` removed; all year views use `view: "receipt"` with `CLIENT_REGISTRY[activeCountry].components.YearReceipt/YearCharts`; summary uses `SummaryView/SummaryCharts/SummaryReceipt`; `StatsHeader` and `InsightsPanel` shown only when `activeCountry === "us"`.
+- **`src/App.tsx`** — `ActiveCountry` widened to `string`; nav built via `CLIENT_REGISTRY[activeCountry]`; `activeReturns` computed generically; `activeCountries` computed from all countries with data; `handleSwitchCountry` uses `getDefaultSelection`.
+
+**Phase 3 — Server + AI generalized:**
+- **`src/lib/country-storage.ts`** — generic `getCountryReturns / saveCountryReturn / deleteCountryReturn / clearCountryData` using plugin.storageFile + schema + migrateReturn?.
+- **`src/index.ts`** — India-specific routes removed; replaced with generic `/api/:country/returns` (GET), `/api/:country/returns/:year` (DELETE), `/api/:country/parse` (POST), `/api/:country/extract-year` (POST) — all driven by `SERVER_REGISTRY[country]`. `/api/clear-data` loops all plugins. `/api/forecast` gathers returns from all plugins via generic storage and passes `activePlugins` to `generateForecast`.
+- **`src/lib/forecaster.ts`** — signature changed to `generateForecast(allReturns, activePlugins, apiKey)` and `buildForecastPrompt(allReturns, activePlugins)`; loops plugins for history, constants, schema snippets, and instructions; fixed latent bug where `bracket` was incorrectly required in validation (India-only users).
+- **`src/App.tsx`** — `indiaReturns` state replaced with `countryReturns: Record<string, Record<number, unknown>>`; `fetchInitialState` loops all non-US countries from `CLIENT_REGISTRY`; `handleUploadIndiaItr` → `handleUploadCountryReturn(country, file)`; `handleDeleteIndiaReturn` → `handleDeleteCountryReturn(country, year)`; `handleDelete` checks `activeCountry !== "us"` instead of hardcoded `=== "india"`.
+- **`.gitignore`** — added `.india-tax-returns.json`, `.canada-tax-returns.json`, `.insights-cache.json`, `.forecast-cache.json`.
+
+**Phase 4 — Contributor guide:**
+- **`docs/ADDING_COUNTRY.md`** — full step-by-step walkthrough with Canada as example: schema, parser, server plugin, client plugin, registration in both registries, list of what still needs building (view components, constants, upload UI), checklist.
+
+**Decisions:**
+- Server/client plugin split: `CountryServerPlugin` imports Bun + Anthropic SDK (server-only); `CountryClientPlugin` imports React (browser-safe). Same country has both, registered in separate files. Prevents server code from being bundled into the browser.
+- `migrateReturn?` on server plugin: US has 5 years of stored data with missing array fields; migration belongs in the plugin, not spread across storage functions.
+- `forecaster.ts` does NOT import `SERVER_REGISTRY` directly (it's imported by App.tsx for types); plugins are passed as arguments from `src/index.ts` to keep the bundler boundary clean.
+- `StatsHeader` and `InsightsPanel` shown only for `activeCountry === "us"` — both are deeply US-specific (federal/state totals, IRS constants badge). Will be generalized per-country in a future phase.
+- Old US-specific routes (`/api/returns`, `/api/parse`, `/api/extract-year`) kept for backward compat — they handle first-time API key saving and US data migration. Generic `/api/:country/*` routes handle all registered countries including US (via `usServerPlugin`).
+- `india-storage.ts` kept on disk (not deleted) — it's still referenced by `scripts/import-india.ts`. Unused by the app now.
+
+**Tests:** 159 pass (updated `forecaster.test.ts` to use new `buildForecastPrompt` signature with plugin objects)
+
+**Known gaps:**
+- `StatsHeader` and `InsightsPanel` are hardcoded US-only — a future country would need its own stats header / insight engine.
+- The `scripts/import-india.ts` CLI still uses `india-storage.ts` directly; should be migrated to use `country-storage.ts` + `indiaServerPlugin`.
+- No Canada or third-country implementation yet — `ADDING_COUNTRY.md` is the guide.
+
+**Next:** India forecast fix (India-only users), screenshot script, open-sourcing prep, or items from FEATURES.md.
+
+---
+
 ## 2026-03-28 (India constants, bracket visualizer, what-if simulator)
 
 **Done:**

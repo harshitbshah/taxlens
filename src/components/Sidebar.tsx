@@ -1,4 +1,4 @@
-import type { ActiveCountry } from "../App";
+import { CLIENT_REGISTRY } from "../countries/views";
 import { cn } from "../lib/cn";
 import { getMostRecentYearItem } from "../lib/nav";
 import type { NavItem } from "../lib/types";
@@ -10,10 +10,10 @@ import { TrashIcon } from "./TrashIcon";
 interface Props {
   navItems: NavItem[];
   selectedId: string;
-  activeCountry: ActiveCountry;
-  hasIndiaData: boolean;
+  activeCountry: string;
+  activeCountries: string[];
   onSelect: (id: string) => void;
-  onSwitchCountry: (country: ActiveCountry) => void;
+  onSwitchCountry: (country: string) => void;
   onOpenStart: () => void;
   onOpenReset: () => void;
   onUploadIndia?: () => void;
@@ -65,7 +65,7 @@ export function Sidebar({
   navItems,
   selectedId,
   activeCountry,
-  hasIndiaData,
+  activeCountries,
   onSelect,
   onSwitchCountry,
   onOpenStart,
@@ -88,6 +88,8 @@ export function Sidebar({
     if (mostRecent) onSelect(mostRecent.id);
   }
 
+  const multiCountry = activeCountries.length > 1;
+
   return (
     <aside className="flex h-screen w-48 shrink-0 flex-col overflow-hidden border-r border-(--color-border) bg-(--color-bg)">
       {/* Logo */}
@@ -99,30 +101,26 @@ export function Sidebar({
       </div>
 
       {/* Country toggle */}
-      {hasIndiaData && (
+      {multiCountry && (
         <div className="flex gap-1 border-b border-(--color-border) p-3">
-          <button
-            onClick={() => onSwitchCountry("us")}
-            className={cn(
-              "flex-1 cursor-pointer rounded-md px-2 py-1 text-xs font-medium transition-colors",
-              activeCountry === "us"
-                ? "bg-(--color-bg-muted) text-(--color-text)"
-                : "text-(--color-text-muted) hover:text-(--color-text)",
-            )}
-          >
-            🇺🇸 US
-          </button>
-          <button
-            onClick={() => onSwitchCountry("india")}
-            className={cn(
-              "flex-1 cursor-pointer rounded-md px-2 py-1 text-xs font-medium transition-colors",
-              activeCountry === "india"
-                ? "bg-(--color-bg-muted) text-(--color-text)"
-                : "text-(--color-text-muted) hover:text-(--color-text)",
-            )}
-          >
-            🇮🇳 India
-          </button>
+          {activeCountries.map((code) => {
+            const plugin = CLIENT_REGISTRY[code];
+            if (!plugin) return null;
+            return (
+              <button
+                key={code}
+                onClick={() => onSwitchCountry(code)}
+                className={cn(
+                  "flex-1 cursor-pointer rounded-md px-2 py-1 text-xs font-medium transition-colors",
+                  activeCountry === code
+                    ? "bg-(--color-bg-muted) text-(--color-text)"
+                    : "text-(--color-text-muted) hover:text-(--color-text)",
+                )}
+              >
+                {plugin.flag} {plugin.name.split(" ")[0]}
+              </button>
+            );
+          })}
         </div>
       )}
 

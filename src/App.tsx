@@ -12,14 +12,14 @@ import { SettingsModal } from "./components/SettingsModal";
 import { SetupDialog } from "./components/SetupDialog";
 import { Sidebar } from "./components/Sidebar";
 import { UploadModal } from "./components/UploadModal";
+import { CLIENT_REGISTRY } from "./countries/views";
 import { sampleReturns } from "./data/sampleData";
 import { isElectron } from "./lib/electron";
 import { getDevDemoOverride, isHostedEnvironment, resolveDemoMode } from "./lib/env";
 import type { ForecastResponse } from "./lib/forecaster";
 import {
-  buildIndiaNavItems,
-  buildUsNavItems,
-  getDefaultIndiaSelection,
+  buildNavItems,
+  getDefaultSelection,
   getDefaultUsSelection,
   parseSelectedId,
   type SelectedView,
@@ -34,7 +34,7 @@ import type {
 import { extractYearFromFilename } from "./lib/year-extractor";
 
 export type UpdateStatus = "available" | "downloading" | "ready";
-export type ActiveCountry = "us" | "india";
+export type ActiveCountry = string;
 // SelectedView is re-exported from nav.ts for external use
 export type { SelectedView };
 
@@ -132,7 +132,7 @@ function saveChatMessages(messages: ChatMessage[]) {
 
 interface AppState {
   returns: Record<number, TaxReturn>;
-  indiaReturns: Record<number, IndianTaxReturn>;
+  countryReturns: Record<string, Record<number, unknown>>;
   hasStoredKey: boolean;
   selectedYear: SelectedView;
   activeCountry: ActiveCountry;
@@ -143,32 +143,37 @@ interface AppState {
 }
 
 async function fetchInitialState(): Promise<
-  Pick<AppState, "returns" | "indiaReturns" | "hasStoredKey" | "hasUserData" | "isDemo" | "isDev">
+  Pick<AppState, "returns" | "countryReturns" | "hasStoredKey" | "hasUserData" | "isDemo" | "isDev">
 > {
   if (isHostedEnvironment()) {
     return {
       hasStoredKey: false,
       returns: {},
-      indiaReturns: {},
+      countryReturns: {},
       hasUserData: false,
       isDemo: true,
       isDev: false,
     };
   }
 
-  const [configRes, returnsRes, indiaRes] = await Promise.all([
+  const nonUsCodes = Object.keys(CLIENT_REGISTRY).filter((c) => c !== "us");
+  const [configRes, returnsRes, ...countryResults] = await Promise.all([
     fetch("/api/config"),
     fetch("/api/returns"),
-    fetch("/api/india/returns"),
+    ...nonUsCodes.map((code) => fetch(`/api/${code}/returns`)),
   ]);
   const { hasKey, isDemo, isDev } = await configRes.json();
   const returns = await returnsRes.json();
-  const indiaReturns = await indiaRes.json();
+  const countryReturns: Record<string, Record<number, unknown>> = {};
+  for (let i = 0; i < nonUsCodes.length; i++) {
+    const res = countryResults[i];
+    if (res?.ok) countryReturns[nonUsCodes[i]!] = await res.json();
+  }
   const hasUserData = Object.keys(returns).length > 0;
   return {
     hasStoredKey: hasKey,
     returns,
-    indiaReturns,
+    countryReturns,
     hasUserData,
     isDemo: isDemo ?? false,
     isDev: isDev ?? false,
@@ -178,7 +183,7 @@ async function fetchInitialState(): Promise<
 export function App() {
   const [state, setState] = useState<AppState>({
     returns: sampleReturns,
-    indiaReturns: {},
+    countryReturns: {},
     hasStoredKey: false,
     selectedYear: "summary",
     activeCountry: "us",
@@ -222,22 +227,40 @@ export function App() {
   const effectiveIsDemo = resolveDemoMode(devDemoOverride, state.isDemo);
   const shouldShowChat = !effectiveIsDemo || !isMobile;
   const effectiveReturns = effectiveIsDemo ? sampleReturns : state.returns;
-  const effectiveIndiaReturns = effectiveIsDemo ? {} : state.indiaReturns;
+  const effectiveCountryReturns = effectiveIsDemo ? {} : state.countryReturns;
+  // Typed alias for components that still expect Record<number, IndianTaxReturn>
+  const effectiveIndiaReturns = (effectiveCountryReturns["india"] ?? {}) as Record<
+    number,
+    IndianTaxReturn
+  >;
 
-  const hasIndiaData = Object.keys(effectiveIndiaReturns).length > 0;
+  const activeCountries = [
+    ...(Object.keys(effectiveReturns).length > 0 ? ["us"] : []),
+    ...Object.entries(effectiveCountryReturns)
+      .filter(([, data]) => Object.keys(data).length > 0)
+      .map(([code]) => code),
+  ];
 
-  const navItems =
-    state.activeCountry === "india"
-      ? buildIndiaNavItems(effectiveIndiaReturns)
-      : buildUsNavItems(effectiveReturns);
+  const activePlugin = CLIENT_REGISTRY[state.activeCountry];
+  const activeReturns: Record<number, unknown> =
+    state.activeCountry === "us"
+      ? effectiveReturns
+      : (effectiveCountryReturns[state.activeCountry] ?? {});
+
+  const navItems = activePlugin
+    ? buildNavItems(activeReturns, {
+        yearLabel: activePlugin.yearLabel,
+        summaryLabel: activePlugin.summaryLabel,
+      })
+    : [];
 
   useEffect(() => {
     fetchInitialState()
-      .then(({ returns, indiaReturns, hasStoredKey, hasUserData, isDemo, isDev }) => {
+      .then(({ returns, countryReturns, hasStoredKey, hasUserData, isDemo, isDev }) => {
         const effectiveReturns = hasUserData ? returns : sampleReturns;
         setState({
           returns: effectiveReturns,
-          indiaReturns,
+          countryReturns,
           hasStoredKey,
           selectedYear: getDefaultUsSelection(effectiveReturns),
           activeCountry: "us",
@@ -477,49 +500,47 @@ export function App() {
     setState((s) => ({ ...s, hasStoredKey: true }));
   }
 
-  async function handleUploadIndiaItr(file: File) {
+  async function handleUploadCountryReturn(country: string, file: File) {
     if (!state.hasStoredKey) return;
+    const plugin = CLIENT_REGISTRY[country];
+    if (!plugin) return;
     const formData = new FormData();
     formData.append("pdf", file);
-    const res = await fetch("/api/india/parse", { method: "POST", body: formData });
+    const res = await fetch(`/api/${country}/parse`, { method: "POST", body: formData });
     if (!res.ok) {
       const { error } = await res.json();
       throw new Error(error || `HTTP ${res.status}`);
     }
-    const indiaReturn: IndianTaxReturn = await res.json();
-    const indiaRes = await fetch("/api/india/returns");
-    const indiaReturns = await indiaRes.json();
+    const result = await res.json();
+    const year = plugin.getYear(result);
+    const refreshed = await fetch(`/api/${country}/returns`);
+    const countryData = await refreshed.json();
     setState((s) => ({
       ...s,
-      indiaReturns,
-      activeCountry: "india",
-      selectedYear: indiaReturn.financialYear,
+      countryReturns: { ...s.countryReturns, [country]: countryData },
+      activeCountry: country,
+      selectedYear: year,
     }));
   }
 
-  async function handleDeleteIndiaReturn(financialYear: number) {
-    await fetch(`/api/india/returns/${financialYear}`, { method: "DELETE" });
+  async function handleDeleteCountryReturn(country: string, year: number) {
+    await fetch(`/api/${country}/returns/${year}`, { method: "DELETE" });
     setState((s) => {
-      const newIndia = { ...s.indiaReturns };
-      delete newIndia[financialYear];
-      const hasAnyIndia = Object.keys(newIndia).length > 0;
+      const countryData = { ...(s.countryReturns[country] ?? {}) };
+      delete countryData[year];
+      const hasAny = Object.keys(countryData).length > 0;
       return {
         ...s,
-        indiaReturns: newIndia,
-        // Switch back to US if no India returns remain
-        activeCountry: hasAnyIndia ? s.activeCountry : "us",
-        selectedYear: hasAnyIndia
-          ? getDefaultIndiaSelection(newIndia)
-          : getDefaultUsSelection(s.returns),
+        countryReturns: { ...s.countryReturns, [country]: countryData },
+        activeCountry: hasAny ? s.activeCountry : "us",
+        selectedYear: hasAny ? getDefaultSelection(countryData) : getDefaultUsSelection(s.returns),
       };
     });
   }
 
-  function handleSwitchCountry(country: ActiveCountry) {
-    const newSelection =
-      country === "us"
-        ? getDefaultUsSelection(effectiveReturns)
-        : getDefaultIndiaSelection(effectiveIndiaReturns);
+  function handleSwitchCountry(country: string) {
+    const returns = country === "us" ? effectiveReturns : (effectiveCountryReturns[country] ?? {});
+    const newSelection = getDefaultSelection(returns);
     setState((s) => ({ ...s, activeCountry: country, selectedYear: newSelection }));
   }
 
@@ -531,7 +552,7 @@ export function App() {
     }
     setState((s) => ({
       returns: sampleReturns,
-      indiaReturns: {},
+      countryReturns: {},
       hasStoredKey: false,
       selectedYear: "summary",
       activeCountry: "us",
@@ -637,9 +658,9 @@ export function App() {
   }
 
   async function handleDelete(id: string) {
-    if (state.activeCountry === "india") {
-      const fy = Number(id);
-      if (!isNaN(fy)) await handleDeleteIndiaReturn(fy);
+    if (state.activeCountry !== "us") {
+      const year = Number(id);
+      if (!isNaN(year)) await handleDeleteCountryReturn(state.activeCountry, year);
       return;
     }
 
@@ -683,7 +704,7 @@ export function App() {
       : null;
 
   function renderMainPanel() {
-    const statsSelectedYear: "summary" | "forecast" | number =
+    const selectedYearNum: "summary" | "forecast" | number =
       state.selectedYear === "forecast"
         ? "forecast"
         : typeof state.selectedYear === "number"
@@ -691,10 +712,11 @@ export function App() {
           : "summary";
 
     const commonProps = {
-      returns: effectiveReturns,
-      selectedYear: statsSelectedYear,
       activeCountry: state.activeCountry,
+      activeReturns,
+      usReturns: effectiveReturns,
       indiaReturns: effectiveIndiaReturns,
+      selectedYear: selectedYearNum,
     };
 
     if (selectedPendingUpload) {
@@ -715,19 +737,9 @@ export function App() {
       return <MainPanel view="summary" {...commonProps} />;
     }
     if (typeof state.selectedYear === "number") {
-      if (state.activeCountry === "india") {
-        return <MainPanel view="india" financialYear={state.selectedYear} {...commonProps} />;
-      }
-      const receiptData = effectiveReturns[state.selectedYear];
-      if (receiptData) {
-        return (
-          <MainPanel
-            view="receipt"
-            data={receiptData}
-            title={String(state.selectedYear)}
-            {...commonProps}
-          />
-        );
+      const yearLabel = activePlugin?.yearLabel(state.selectedYear) ?? String(state.selectedYear);
+      if (activeReturns[state.selectedYear]) {
+        return <MainPanel view="receipt" title={yearLabel} {...commonProps} />;
       }
     }
     return <MainPanel view="summary" {...commonProps} />;
@@ -826,7 +838,7 @@ export function App() {
         onChange={async (e) => {
           const file = e.target.files?.[0];
           if (file) {
-            await handleUploadIndiaItr(file);
+            await handleUploadCountryReturn("india", file);
             e.target.value = "";
           }
         }}
@@ -835,7 +847,7 @@ export function App() {
         navItems={navItems}
         selectedId={selectedId}
         activeCountry={state.activeCountry}
-        hasIndiaData={hasIndiaData}
+        activeCountries={activeCountries}
         onSelect={handleSelect}
         onSwitchCountry={handleSwitchCountry}
         onOpenStart={() => setOpenModal("onboarding")}

@@ -41,6 +41,29 @@ export const usServerPlugin: CountryServerPlugin = {
   storageFile: ".tax-returns.json",
   schema: TaxReturnSchema,
 
+  // Backfill missing array fields from old stored data before schema validation.
+  migrateReturn: (raw) => {
+    const ret = raw as Record<string, unknown>;
+    const fed = (ret.federal ?? {}) as Record<string, unknown>;
+    return {
+      ...ret,
+      dependents: ret.dependents ?? [],
+      federal: {
+        ...fed,
+        deductions: fed.deductions ?? [],
+        additionalTaxes: fed.additionalTaxes ?? [],
+        credits: fed.credits ?? [],
+        payments: fed.payments ?? [],
+      },
+      states: ((ret.states ?? []) as Record<string, unknown>[]).map((s) => ({
+        ...s,
+        deductions: s.deductions ?? [],
+        adjustments: s.adjustments ?? [],
+        payments: s.payments ?? [],
+      })),
+    };
+  },
+
   getYear: (r) => (r as TaxReturn).year,
   yearLabel: (year) => String(year),
   summaryLabel: "All time",

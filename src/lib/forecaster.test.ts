@@ -1,5 +1,7 @@
 import { describe, expect, test } from "bun:test";
 
+import { indiaServerPlugin } from "../countries/india/index";
+import { usServerPlugin } from "../countries/us/index";
 import { buildForecastPrompt, parseForecastResponse } from "./forecaster";
 import type { IndianTaxReturn, TaxReturn } from "./schema";
 
@@ -122,47 +124,49 @@ function makeForecastJson(overrides: Record<string, unknown> = {}): string {
 
 describe("buildForecastPrompt", () => {
   test("includes all US return years in output", () => {
-    const returns = {
-      2022: makeUsReturn(2022),
-      2023: makeUsReturn(2023),
-      2024: makeUsReturn(2024),
+    const allReturns = {
+      us: { 2022: makeUsReturn(2022), 2023: makeUsReturn(2023), 2024: makeUsReturn(2024) },
     };
-    const prompt = buildForecastPrompt(returns, {});
+    const prompt = buildForecastPrompt(allReturns, [usServerPlugin]);
     expect(prompt).toContain("2022");
     expect(prompt).toContain("2023");
     expect(prompt).toContain("2024");
   });
 
   test("sets projectedYear to max US year + 1", () => {
-    const returns = { 2023: makeUsReturn(2023), 2024: makeUsReturn(2024) };
-    const prompt = buildForecastPrompt(returns, {});
+    const allReturns = { us: { 2023: makeUsReturn(2023), 2024: makeUsReturn(2024) } };
+    const prompt = buildForecastPrompt(allReturns, [usServerPlugin]);
     expect(prompt).toContain("2025");
   });
 
   test("includes income amounts for each year", () => {
-    const returns = { 2024: makeUsReturn(2024) };
-    const prompt = buildForecastPrompt(returns, {});
+    const allReturns = { us: { 2024: makeUsReturn(2024) } };
+    const prompt = buildForecastPrompt(allReturns, [usServerPlugin]);
     expect(prompt).toContain("150000");
   });
 
   test("includes India section when India returns present", () => {
-    const returns = { 2024: makeUsReturn(2024) };
-    const indiaReturns = { 2024: makeIndiaReturn(2024) };
-    const prompt = buildForecastPrompt(returns, indiaReturns);
-    expect(prompt).toContain("India ITR History");
+    const allReturns = {
+      us: { 2024: makeUsReturn(2024) },
+      india: { 2024: makeIndiaReturn(2024) },
+    };
+    const prompt = buildForecastPrompt(allReturns, [usServerPlugin, indiaServerPlugin]);
+    expect(prompt).toContain("India Tax History");
     expect(prompt).toContain("2410000"); // taxableIncome from India fixture
   });
 
   test("omits India section when no India returns", () => {
-    const returns = { 2024: makeUsReturn(2024) };
-    const prompt = buildForecastPrompt(returns, {});
-    expect(prompt).not.toContain("India ITR History");
+    const allReturns = { us: { 2024: makeUsReturn(2024) } };
+    const prompt = buildForecastPrompt(allReturns, [usServerPlugin]);
+    expect(prompt).not.toContain("India Tax History");
   });
 
   test("includes India regime instructions when India data present", () => {
-    const returns = { 2024: makeUsReturn(2024) };
-    const indiaReturns = { 2024: makeIndiaReturn(2024) };
-    const prompt = buildForecastPrompt(returns, indiaReturns);
+    const allReturns = {
+      us: { 2024: makeUsReturn(2024) },
+      india: { 2024: makeIndiaReturn(2024) },
+    };
+    const prompt = buildForecastPrompt(allReturns, [usServerPlugin, indiaServerPlugin]);
     expect(prompt).toContain("old vs new regime");
   });
 });

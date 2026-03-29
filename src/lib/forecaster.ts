@@ -1,12 +1,6 @@
 import Anthropic from "@anthropic-ai/sdk";
 
-import {
-  formatIndiaConstantsForPrompt,
-  formatUsConstantsForPrompt,
-  getIndiaConstants,
-  getUsConstants,
-} from "./constants";
-import type { IndianTaxReturn, TaxReturn } from "./schema";
+import type { CountryServerPlugin } from "./country-registry";
 
 export type ForecastResponse = {
   projectedYear: number;
@@ -57,96 +51,33 @@ export type ForecastResponse = {
   generatedAt: string;
 };
 
-// Build a condensed per-year summary to send to Claude.
-// Avoids sending the full raw JSON (which includes display-only fields) and keeps tokens lean.
-function buildUsYearSummary(year: number, r: TaxReturn) {
-  const capGainsItems = r.income.items.filter(
-    (i) =>
-      i.label.toLowerCase().includes("capital gain") || i.label.toLowerCase().includes("cap gain"),
-  );
-  return {
-    year,
-    filingStatus: r.filingStatus,
-    incomeTotalLine9: r.income.total,
-    incomeItems: r.income.items.map((i) => ({ label: i.label, amount: i.amount })),
-    capitalGainsItems: capGainsItems,
-    agi: r.federal.agi,
-    deductions: r.federal.deductions.map((d) => ({ label: d.label, amount: d.amount })),
-    taxableIncome: r.federal.taxableIncome,
-    federalTax: r.federal.tax,
-    additionalTaxes: r.federal.additionalTaxes,
-    credits: r.federal.credits,
-    federalRefundOrOwed: r.federal.refundOrOwed,
-    effectiveRate: r.rates?.federal.effective,
-    marginalRate: r.rates?.federal.marginal,
-    states: r.states.map((s) => ({
-      name: s.name,
-      taxableIncome: s.taxableIncome,
-      tax: s.tax,
-      refundOrOwed: s.refundOrOwed,
-    })),
-    netPosition: r.summary.netPosition,
-  };
-}
-
-function buildIndiaYearSummary(r: IndianTaxReturn) {
-  return {
-    financialYear: r.financialYear,
-    assessmentYear: r.assessmentYear,
-    itrForm: r.itrForm,
-    salary: r.income.salary.reduce((s, i) => s + i.amount, 0),
-    capitalGainsStcg: r.income.capitalGains.stcg.total,
-    capitalGainsLtcg: r.income.capitalGains.ltcg.total,
-    otherSources: r.income.otherSources.reduce((s, i) => s + i.amount, 0),
-    grossIncome: r.income.grossTotal,
-    deductions: r.deductions.map((d) => ({ label: d.label, amount: d.amount })),
-    taxableIncome: r.taxableIncome,
-    grossTax: r.tax.grossTax,
-    totalTaxLiability: r.tax.totalTaxLiability,
-    totalTaxPaid: r.tax.totalTaxPaid,
-    refundOrDue: r.tax.refundOrDue,
-  };
-}
-
 export function buildForecastPrompt(
-  usReturns: Record<number, TaxReturn>,
-  indiaReturns: Record<number, IndianTaxReturn>,
+  allReturns: Record<string, Record<number, unknown>>,
+  activePlugins: CountryServerPlugin[],
 ): string {
-  const usYears = Object.keys(usReturns)
-    .map(Number)
-    .sort((a, b) => a - b);
-  const indiaYears = Object.keys(indiaReturns)
-    .map(Number)
-    .sort((a, b) => a - b);
+  const pluginsWithData = activePlugins.filter(
+    (p) => Object.keys(allReturns[p.code] ?? {}).length > 0,
+  );
 
-  const usSummaries = usYears.map((y) => buildUsYearSummary(y, usReturns[y]!));
-  const indiaSummaries = indiaYears.map((y) => buildIndiaYearSummary(indiaReturns[y]!));
+  // Projected year = max year key across all countries + 1
+  const allYears = pluginsWithData.flatMap((p) =>
+    Object.keys(allReturns[p.code] ?? {}).map(Number),
+  );
+  const projectedYear = allYears.length > 0 ? Math.max(...allYears) + 1 : new Date().getFullYear();
 
-  const hasUs = usYears.length > 0;
-  const hasIndia = indiaSummaries.length > 0;
-  const projectedYear = hasUs
-    ? Math.max(...usYears) + 1
-    : hasIndia
-      ? Math.max(...indiaYears) + 1 // India FY start year
-      : new Date().getFullYear();
+  // Build JSON schema for Claude — core fields + per-country extensions
+  const extensionSnippets = pluginsWithData
+    .map((p) => p.forecast?.schemaSnippet(projectedYear))
+    .filter(Boolean)
+    .map((s) => `  ${s}`)
+    .join(",\n");
 
   const schemaDoc = `{
   "projectedYear": ${projectedYear},
   "taxLiability": { "value": number, "low": number, "high": number },
   "effectiveRate": { "value": number, "low": number, "high": number },
   "estimatedOutcome": { "value": number, "low": number, "high": number, "label": "refund" | "owed" },
-  ${
-    hasUs
-      ? `"bracket": {
-    "rate": number,
-    "floor": number,
-    "ceiling": number,
-    "projectedIncome": number,
-    "headroom": number
-  },`
-      : `// bracket: omit — no US returns`
-  }
-  "assumptions": [
+${extensionSnippets ? extensionSnippets + ",\n" : ""}  "assumptions": [
     {
       "icon": string (single emoji),
       "label": string (short, e.g. "Salary growth"),
@@ -168,76 +99,62 @@ export function buildForecastPrompt(
   "riskFlags": [
     { "severity": "high" | "medium", "description": string }
   ],
-  ${
-    hasIndia
-      ? `"india": {
-    "regimeRecommendation": "old" | "new",
-    "oldRegimeTax": number,
-    "newRegimeTax": number,
-    "savingUnderRecommended": number,
-    "reasoning": string
-  },`
-      : ""
-  }
   "generatedAt": "${new Date().toISOString()}"
 }`;
-
-  const constants = getUsConstants(projectedYear);
 
   const parts: string[] = [
     `You are a tax planning analyst. Analyze the user's full tax history and produce a structured forecast for ${projectedYear}.`,
   ];
 
-  if (hasUs) {
-    parts.push("", "## US Tax History", JSON.stringify(usSummaries, null, 2));
-  }
+  // Per-country: tax history + constants
+  for (const plugin of pluginsWithData) {
+    const returns = allReturns[plugin.code] ?? {};
+    const years = Object.keys(returns)
+      .map(Number)
+      .sort((a, b) => a - b);
+    const summaries = years.map((y) => plugin.buildYearSummary(returns[y]));
+    parts.push("", `## ${plugin.name} Tax History`, JSON.stringify(summaries, null, 2));
 
-  if (hasIndia) {
-    parts.push("", "## India ITR History", JSON.stringify(indiaSummaries, null, 2));
-  }
-
-  if (constants) {
-    parts.push("", formatUsConstantsForPrompt(constants));
-  } else {
-    parts.push(
-      "",
-      `## Note on ${projectedYear} tax constants`,
-      `No verified IRS constants are available for ${projectedYear} in this app yet. Use your best knowledge but flag any bracket or limit figures as unverified in your assumptions.`,
-    );
-  }
-
-  if (hasIndia) {
-    // India FY projected year: most recent India return's financialYear + 1
-    const projectedIndiaFY = Math.max(...indiaYears) + 1;
-    const indiaConstants = getIndiaConstants(projectedIndiaFY);
-    if (indiaConstants) {
-      parts.push("", formatIndiaConstantsForPrompt(indiaConstants));
-    } else {
+    const pluginProjectedYear = Math.max(...years) + 1;
+    const constants = plugin.constants?.get(pluginProjectedYear);
+    if (constants) {
+      parts.push("", plugin.constants!.format(constants));
+    } else if (plugin.constants) {
       parts.push(
         "",
-        `## Note on FY ${projectedIndiaFY}-${String(projectedIndiaFY + 1).slice(2)} India tax constants`,
-        `No verified India constants on file for FY ${projectedIndiaFY}. Use best knowledge but flag figures as unverified.`,
+        `## Note on ${plugin.yearLabel(pluginProjectedYear)} tax constants`,
+        `No verified tax constants available for ${plugin.yearLabel(pluginProjectedYear)} in this app yet. Use your best knowledge but flag any figures as unverified in your assumptions.`,
       );
     }
   }
 
+  // Instructions
+  const primaryPlugin = pluginsWithData[0]!;
+  const primaryYears = Object.keys(allReturns[primaryPlugin.code] ?? {}).map(Number);
+  const primaryProjected = Math.max(...primaryYears) + 1;
+  const hasUs = pluginsWithData.some((p) => p.code === "us");
+
   parts.push(
     "",
     "## Instructions",
-    hasUs
-      ? `- Project ${projectedYear} US federal + state taxes based on observed trends (income growth, deduction patterns, capital gains variance)`
-      : `- Project FY ${projectedYear}–${String(projectedYear + 1).slice(2)} India income tax based on observed trends`,
+    `- Project ${primaryPlugin.yearLabel(primaryProjected)} ${primaryPlugin.name} taxes based on observed trends (income growth, deduction patterns, capital gains variance)`,
     "- Surface 3–5 action items — mix of forward-looking optimizations and retroactive insights from past years that are still actionable",
     "- For each assumption, state your reasoning and confidence level honestly",
     "- For risk flags: only flag genuine uncertainties (capital gains variance, bonus likelihood, rate changes). Max 3 flags.",
-    hasIndia
-      ? "- For India: compare old vs new regime for the upcoming FY based on recent ITR history. Recommend the better one. Return oldRegimeTax and newRegimeTax as plain integers in INR (no commas, no ₹ symbol)."
-      : "",
+  );
+
+  for (const plugin of pluginsWithData) {
+    if (plugin.forecast?.promptInstruction) {
+      parts.push(`- ${plugin.forecast.promptInstruction}`);
+    }
+  }
+
+  parts.push(
     hasUs
       ? "- taxLiability = projected combined US federal + state tax owed (before withholding)"
-      : "- taxLiability = projected India total tax liability in INR",
+      : "- taxLiability = projected total tax liability in local currency",
     "- estimatedOutcome = refund (positive value) or owed (negative value) at filing time, based on projected withholding/advance-tax trends",
-    hasUs ? "" : "- bracket: omit this field entirely — there are no US returns",
+    !hasUs ? "- bracket: omit this field entirely — there are no US returns" : "",
     "- Return ONLY valid JSON. No markdown, no explanation outside the JSON.",
     "",
     "## Required output schema",
@@ -263,7 +180,7 @@ export function parseForecastResponse(text: string): ForecastResponse {
 
   // Validate required top-level fields
   if (typeof raw.projectedYear !== "number") throw new Error("Missing projectedYear");
-  if (!raw.taxLiability || !raw.effectiveRate || !raw.estimatedOutcome || !raw.bracket) {
+  if (!raw.taxLiability || !raw.effectiveRate || !raw.estimatedOutcome) {
     throw new Error("Missing required metric fields");
   }
   if (
@@ -366,12 +283,12 @@ export function parseForecastResponse(text: string): ForecastResponse {
 }
 
 export async function generateForecast(
-  usReturns: Record<number, TaxReturn>,
-  indiaReturns: Record<number, IndianTaxReturn>,
+  allReturns: Record<string, Record<number, unknown>>,
+  activePlugins: CountryServerPlugin[],
   apiKey: string,
 ): Promise<ForecastResponse> {
   const client = new Anthropic({ apiKey });
-  const prompt = buildForecastPrompt(usReturns, indiaReturns);
+  const prompt = buildForecastPrompt(allReturns, activePlugins);
 
   const response = await client.messages.create({
     model: "claude-sonnet-4-6",
