@@ -4,6 +4,16 @@ One entry per checkpoint. Most recent first.
 
 ---
 
+## 2026-03-28 (Post-/simplify cleanup)
+
+**Done:**
+- **`src/lib/country-storage.ts`** — removed TOCTOU anti-pattern in `clearCountryData`: `file.exists()` check before `Bun.write` replaced with a direct write (file is always created/reset regardless of prior existence).
+- **`src/lib/forecaster.ts`** — eliminated repeated per-plugin year extraction in `buildForecastPrompt`: introduced `pluginYears: number[][]` computed once upfront, indexed by plugin position; reused in the history loop (`years = pluginYears[i]`) and for `primaryProjected` (removed third separate `Object.keys(...).map(Number)` pass).
+
+**Tests:** still passing (no logic changed, only efficiency/correctness fixes)
+
+---
+
 ## 2026-03-28 (Country-agnostic plugin architecture — Phases 1–4)
 
 **Done:**

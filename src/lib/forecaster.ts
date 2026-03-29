@@ -59,10 +59,15 @@ export function buildForecastPrompt(
     (p) => Object.keys(allReturns[p.code] ?? {}).length > 0,
   );
 
-  // Projected year = max year key across all countries + 1
-  const allYears = pluginsWithData.flatMap((p) =>
-    Object.keys(allReturns[p.code] ?? {}).map(Number),
+  // Precompute sorted years per plugin — reused for projected year, history, and instructions
+  const pluginYears = pluginsWithData.map((p) =>
+    Object.keys(allReturns[p.code] ?? {})
+      .map(Number)
+      .sort((a, b) => a - b),
   );
+
+  // Projected year = max year key across all countries + 1
+  const allYears = pluginYears.flat();
   const projectedYear = allYears.length > 0 ? Math.max(...allYears) + 1 : new Date().getFullYear();
 
   // Build JSON schema for Claude — core fields + per-country extensions
@@ -107,11 +112,10 @@ ${extensionSnippets ? extensionSnippets + ",\n" : ""}  "assumptions": [
   ];
 
   // Per-country: tax history + constants
-  for (const plugin of pluginsWithData) {
+  for (let i = 0; i < pluginsWithData.length; i++) {
+    const plugin = pluginsWithData[i]!;
     const returns = allReturns[plugin.code] ?? {};
-    const years = Object.keys(returns)
-      .map(Number)
-      .sort((a, b) => a - b);
+    const years = pluginYears[i]!;
     const summaries = years.map((y) => plugin.buildYearSummary(returns[y]));
     parts.push("", `## ${plugin.name} Tax History`, JSON.stringify(summaries, null, 2));
 
@@ -130,8 +134,7 @@ ${extensionSnippets ? extensionSnippets + ",\n" : ""}  "assumptions": [
 
   // Instructions
   const primaryPlugin = pluginsWithData[0]!;
-  const primaryYears = Object.keys(allReturns[primaryPlugin.code] ?? {}).map(Number);
-  const primaryProjected = Math.max(...primaryYears) + 1;
+  const primaryProjected = Math.max(...pluginYears[0]!) + 1;
   const hasUs = pluginsWithData.some((p) => p.code === "us");
 
   parts.push(

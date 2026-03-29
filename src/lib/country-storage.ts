@@ -43,8 +43,5 @@ export async function deleteCountryReturn(
 
 export async function clearCountryData(plugin: CountryServerPlugin): Promise<void> {
   const filePath = path.join(DATA_DIR, plugin.storageFile);
-  const file = Bun.file(filePath);
-  if (await file.exists()) {
-    await Bun.write(filePath, "{}");
-  }
+  await Bun.write(filePath, "{}");
 }

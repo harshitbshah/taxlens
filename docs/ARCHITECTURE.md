@@ -1,6 +1,6 @@
 # Architecture
 
-Last updated: 2026-03-28 (India constants, bracket visualizer, what-if simulator)
+Last updated: 2026-03-28 (country-agnostic plugin architecture — Phases 1–4)
 
 ---
 
@@ -13,40 +13,75 @@ Browser (React 19)
     │
     ▼
 Bun server (src/index.ts)   idleTimeout: 120s (Claude calls take 30–90s)
-    ├── GET  /                      → serves React SPA
-    ├── GET  /api/config            → hasKey, isDemo, isDev
-    ├── POST /api/config/key        → validate + save API key
-    ├── GET  /api/returns           → all US returns
-    ├── DELETE /api/returns/:year   → delete a US return
-    ├── POST /api/extract-year      → Haiku: detect year from PDF
-    ├── POST /api/parse             → Sonnet: parse US PDF → TaxReturn
-    ├── POST /api/chat              → Sonnet: year-aware chat
-    ├── POST /api/suggestions       → Haiku: 3 follow-up questions
-    ├── GET  /api/india/returns     → all India returns
-    ├── DELETE /api/india/returns/:year
-    ├── POST /api/india/extract-year
-    ├── POST /api/india/parse       → Sonnet: parse ITR PDF → IndianTaxReturn
-    ├── GET  /api/forecast          → cached ForecastResponse (404 if none)
-    ├── POST /api/forecast          → Sonnet: generate + cache ForecastResponse
-    ├── GET  /api/insights?year=N   → cached InsightItem[] for year N (404 if none)
-    ├── POST /api/insights?year=N   → Sonnet: generate + cache InsightItem[] for year N
-    └── POST /api/clear-data        → wipe all returns + forecast + insights cache
+    ├── GET  /                           → serves React SPA
+    ├── GET  /api/config                 → hasKey, isDemo, isDev
+    ├── POST /api/config/key             → validate + save API key
+    ├── POST /api/chat                   → Sonnet: year-aware chat
+    ├── POST /api/suggestions            → Haiku: 3 follow-up questions
+    ├── GET  /api/forecast               → cached ForecastResponse (404 if none)
+    ├── POST /api/forecast               → Sonnet: generate + cache ForecastResponse (all countries)
+    ├── GET  /api/insights?year=N        → cached InsightItem[] for year N (404 if none)
+    ├── POST /api/insights?year=N        → Sonnet: generate + cache InsightItem[] for year N
+    ├── POST /api/clear-data             → wipe all returns + caches for all registered countries
     │
-    ├── src/lib/parser.ts           → US return parsing (two-pass Sonnet)
-    ├── src/lib/india-parser.ts     → India ITR parsing (Haiku detect + Sonnet extract)
-    ├── src/lib/storage.ts          → US returns (flat JSON)
-    ├── src/lib/india-storage.ts    → India returns (flat JSON)
-    ├── src/lib/pdf-utils.ts        → Java-serialized PDF unwrapping
-    ├── src/lib/forecaster.ts       → buildForecastPrompt + parseForecastResponse + generateForecast
-    ├── src/lib/forecast-cache.ts   → forecast JSON cache (.forecast-cache.json)
-    ├── src/lib/insights.ts         → buildInsightsPrompt + parseInsightsResponse + generateInsights
-    ├── src/lib/insights-cache.ts   → per-year insights JSON cache (.insights-cache.json)
-    └── src/lib/constants/          → per-country tax constants injected into prompts
-            shared.ts               → BracketEntry type
-            us.ts                   → IRS constants 2018–2026; getUsConstants(year) / formatUsConstantsForPrompt(c)
-            india.ts                → India constants FY 2018–2025 (old+new regimes, surcharge, cess, deductions)
-            index.ts                → re-exports all countries
+    │   Generic country routes — driven by SERVER_REGISTRY[country]:
+    ├── GET    /api/:country/returns     → all returns for that country
+    ├── DELETE /api/:country/returns/:year
+    ├── POST   /api/:country/extract-year → Haiku/Sonnet: detect year from PDF
+    ├── POST   /api/:country/parse        → Sonnet: parse PDF → country-specific schema
+    │
+    │   US legacy routes (backward compat + first-time API key setup):
+    ├── GET    /api/returns              → US returns (delegates to /api/us/returns logic)
+    ├── DELETE /api/returns/:year
+    ├── POST   /api/extract-year
+    └── POST   /api/parse
+    │
+    ├── src/countries/index.ts          → SERVER_REGISTRY: Record<code, CountryServerPlugin>
+    ├── src/countries/us/index.ts       → usServerPlugin (parser, schema, constants, migrateReturn)
+    ├── src/countries/india/index.ts    → indiaServerPlugin (parser, schema, constants)
+    ├── src/lib/country-registry.ts     → CountryServerPlugin + CountryClientPlugin interfaces
+    ├── src/lib/country-storage.ts      → getCountryReturns / saveCountryReturn / deleteCountryReturn / clearCountryData
+    ├── src/lib/parser.ts               → US return parsing (two-pass Sonnet)
+    ├── src/lib/india-parser.ts         → India ITR parsing (Haiku detect + Sonnet extract)
+    ├── src/lib/storage.ts              → US returns flat JSON (legacy; migrateReturn now in usServerPlugin)
+    ├── src/lib/pdf-utils.ts            → Java-serialized PDF unwrapping
+    ├── src/lib/forecaster.ts           → buildForecastPrompt(allReturns, activePlugins) + parseForecastResponse + generateForecast
+    ├── src/lib/forecast-cache.ts       → forecast JSON cache (.forecast-cache.json)
+    ├── src/lib/insights.ts             → buildInsightsPrompt + parseInsightsResponse + generateInsights
+    ├── src/lib/insights-cache.ts       → per-year insights JSON cache (.insights-cache.json)
+    └── src/lib/constants/              → per-country tax constants injected into prompts
+            shared.ts                   → BracketEntry type
+            us.ts                       → IRS constants 2018–2026; getUsConstants(year) / formatUsConstantsForPrompt(c)
+            india.ts                    → India constants FY 2018–2025 (old+new regimes, surcharge, cess, deductions)
+            index.ts                    → re-exports all countries
 ```
+
+---
+
+## Country Plugin System
+
+TaxLens uses a split plugin architecture to support any number of countries without server code leaking into the browser bundle.
+
+```
+src/lib/country-registry.ts
+  CountryServerPlugin   — Bun/Anthropic side: code, name, flag, currency,
+                          storageFile, schema, migrateReturn?, getYear, yearLabel,
+                          summaryLabel, parseReturn, extractYearFromPdf,
+                          buildYearSummary, constants?, forecast?
+  CountryClientPlugin   — React side: same identity + year fields,
+                          components { YearReceipt, YearCharts, SummaryView,
+                          SummaryCharts, SummaryReceipt? }, forecast?.ExtensionCard
+
+src/countries/index.ts      → SERVER_REGISTRY (imported by src/index.ts only)
+src/countries/views.ts      → CLIENT_REGISTRY (imported by React components only)
+
+src/countries/us/index.ts   → usServerPlugin
+src/countries/us/views.tsx  → usClientPlugin
+src/countries/india/index.ts  → indiaServerPlugin
+src/countries/india/views.tsx → indiaClientPlugin
+```
+
+Adding a new country requires only files inside `src/countries/<code>/`. The server routes, storage, forecast, and sidebar pick it up automatically. See `docs/ADDING_COUNTRY.md`.
 
 ---
 
@@ -63,13 +98,13 @@ PDF upload
 
 ### Parsing (India)
 ```
-PDF upload (or scripts/import-india.ts CLI)
+PDF upload via POST /api/india/parse (or scripts/import-india.ts CLI)
   → pdf-utils.ts: unwrap if Java-serialized (Indian IT portal wraps PDFs in aced0005)
   → india-parser.ts:
       pass 1 — Haiku: detect ITR-1 vs ITR-2
       pass 2 — Sonnet: extract (single-pass for ITR-1, two-pass for ITR-2)
       proactive token budget: 60s sliding window on response.usage to prevent 429s
-  → india-storage.ts: upsert to .india-tax-returns.json keyed by FY
+  → country-storage.ts: saveCountryReturn(indiaServerPlugin, ...) → .india-tax-returns.json keyed by FY
 ```
 
 ### Chat
@@ -85,10 +120,11 @@ User message
 ```
 "Generate Forecast" click (or "Regenerate")
   → App.tsx: handleGenerateForecast() — POST /api/forecast
-  → forecaster.ts: buildForecastPrompt()
-      condensed per-year US + India summaries
-      + constants/us.ts: getUsConstants(projectedYear) injected as verified IRS figures
-      + constants/india.ts: getIndiaConstants(projectedIndiaFY) injected if India returns present
+  → src/index.ts: gathers returns from all plugins via getCountryReturns; passes activePlugins to generateForecast
+  → forecaster.ts: buildForecastPrompt(allReturns, activePlugins)
+      loops plugins: per-country condensed year summaries via plugin.buildYearSummary
+      + plugin.constants?.get(projectedYear) injected as verified tax figures per country
+      + plugin.forecast?.schemaSnippet / promptInstruction for country-specific JSON fields
   → Claude Sonnet: returns ForecastResponse JSON
   → parseForecastResponse(): validates + normalizes (confidence, severity, headroom)
   → forecast-cache.ts: writes .forecast-cache.json
@@ -128,12 +164,15 @@ Subsequent year visits
 |------|-------|--------|
 | US tax returns | `.tax-returns.json` | JSON keyed by year, Zod-validated |
 | India tax returns | `.india-tax-returns.json` | JSON keyed by FY, Zod-validated |
+| Any future country | `.<code>-tax-returns.json` | JSON keyed by year/FY, plugin-defined |
 | Forecast cache | `.forecast-cache.json` | JSON, single ForecastResponse |
 | Insights cache | `.insights-cache.json` | JSON, Record<year, InsightItem[]> |
 | Chat history | localStorage | Per-session, browser-only |
 | API key | `.env` (ANTHROPIC_API_KEY) | Never committed |
 
-All files are gitignored. `.tax-returns.json` and `.india-tax-returns.json` are the source of truth — all caches are derived and can be regenerated at any time. `/api/clear-data` wipes returns + all caches.
+All files are gitignored. Return files are the source of truth — all caches are derived and can be regenerated. `/api/clear-data` wipes returns + all caches for all registered countries.
+
+Storage functions live in `src/lib/country-storage.ts` and are driven entirely by `plugin.storageFile`, `plugin.schema`, `plugin.migrateReturn?`, and `plugin.getYear`.
 
 Phase 4 (deferred): upgrade caches to `bun:sqlite` for richer query/history. Current flat JSON is sufficient.
 
@@ -142,12 +181,15 @@ Phase 4 (deferred): upgrade caches to `bun:sqlite` for richer query/history. Cur
 ## Frontend
 
 ```
-src/App.tsx                     main layout + state (country, selectedYear, nav, chat, forecastState)
-src/lib/nav.ts                  nav item builders + SelectedView type
+src/App.tsx                     main layout + state (activeCountry: string, countryReturns, nav, chat, forecastState)
+src/lib/nav.ts                  generic buildNavItems / getDefaultSelection + per-country thin delegates
 src/lib/constants/              per-country tax constants (US 2018–2026, India FY 2018–2025)
+src/countries/views.ts          CLIENT_REGISTRY: Record<code, CountryClientPlugin> — imported by React only
+src/countries/us/views.tsx      usClientPlugin: ReceiptView, YearCharts, SummaryTable, SummaryCharts, SummaryReceiptView
+src/countries/india/views.tsx   indiaClientPlugin: IndiaReceiptView, IndiaYearCharts, IndiaSummaryView, IndiaSummaryCharts
 src/components/
-  Sidebar.tsx                   left sidebar (logo, country toggle, views, years, footer)
-  MainPanel.tsx                 content area router (summary/receipt/india/forecast/loading)
+  Sidebar.tsx                   left sidebar (logo, country toggle via CLIENT_REGISTRY, views, years, footer)
+  MainPanel.tsx                 content area router (summary/receipt/forecast/loading) — all year/summary views via plugin.components
   Chat.tsx                      floating chat panel (right side)
   ForecastView.tsx              forecast page — pure render, receives ForecastState + onGenerate as props
   BracketBar.tsx                bracket position bar with fill% and headroom
@@ -171,6 +213,8 @@ src/components/
 ```
 
 Navigation: left sidebar (192px) with Views section (Summary / By Year / Forecast) and Years list. "By Year" is active when any year is selected; clicking it navigates to the most recent year.
+
+Country toggle appears only when `activeCountries.length > 1` (data exists for more than one country). It loops `CLIENT_REGISTRY` filtered to countries with data — new countries appear automatically when registered.
 
 ---
 
@@ -249,6 +293,9 @@ Indian ITRs with full capital gains schedules can hit 429 rate limits on Haiku. 
 
 **Why hardcode IRS constants instead of fetching them?**
 ~50 lines per year, permanent source of truth, zero network dependency, auditable inline. At 20 years it's ~1,000 lines — well within the range of a readable config file. The alternative (fetching from an IRS API or Tax Foundation) introduces a dependency, a failure mode, and the risk of pulling pre-amendment data (Tax Foundation's 2025 figures were pre-OBBBA and had wrong bracket ceilings). Always source from `irs.gov/filing/federal-income-tax-rates-and-brackets` directly.
+
+**Why split CountryServerPlugin and CountryClientPlugin instead of one plugin interface?**
+The server plugin imports Bun, Anthropic SDK, and Zod schemas — none of which belong in the browser bundle. The client plugin imports React and JSX components — which should never run on the server. Splitting the interface into two (registered in `src/countries/index.ts` and `src/countries/views.ts` respectively) enforces this boundary at the module level. `forecaster.ts` accepts `CountryServerPlugin[]` as arguments from `src/index.ts` rather than importing `SERVER_REGISTRY` itself, because `forecaster.ts` is also imported by `App.tsx` (for the `ForecastResponse` type); a direct registry import would pull server-only code into the browser bundle.
 
 **Why a per-country module directory for constants instead of a single file?**
 A single `tax-constants.ts` with US-only types would need to absorb India (old/new regimes, surcharge, cess, FY keys) and Canada (federal + provincial, RRSP/TFSA) with incompatible structures. Each country gets its own module with its own type, data record, getter, and prompt formatter. No shared supertype is forced. `index.ts` re-exports all registered countries. See `docs/ADDING_COUNTRY_CONSTANTS.md` for onboarding a new country.

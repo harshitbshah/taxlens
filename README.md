@@ -20,7 +20,7 @@ Forked from [brianlovin/tax-ui](https://github.com/brianlovin/tax-ui).
 - **AI Forecast** — Claude reasons over your full tax history to project next year's liability, surface action items, bracket position, and risk flags — no manual input
 - **Verified tax constants** — IRS bracket thresholds, standard deductions, LTCG rates, and contribution limits for 2018–2026; India tax slabs (old/new regimes), surcharge, cess, and deduction caps for FY 2018–2025 — hardcoded from authoritative sources and injected into every prompt
 - **Chat with Claude** — year-aware conversation with your full tax history as context; ask what-ifs from any view
-- **Country toggle** — switch between 🇺🇸 US and 🇮🇳 India views
+- **Country toggle** — switch between 🇺🇸 US and 🇮🇳 India views; extensible plugin architecture to add any country without touching core app code
 
 ---
 
@@ -174,7 +174,13 @@ bunx tsc --noEmit    # type check
 bun run lint         # ESLint + Prettier
 ```
 
-See [`docs/ARCHITECTURE.md`](docs/ARCHITECTURE.md) for a full architecture walkthrough.
+### Docs
+
+- [`docs/ARCHITECTURE.md`](docs/ARCHITECTURE.md) — full system architecture, data flow, component map, model usage, key design decisions
+- [`docs/ADDING_COUNTRY.md`](docs/ADDING_COUNTRY.md) — step-by-step guide to onboarding a new country (schema, parser, server plugin, client plugin, registration)
+- [`docs/ADDING_COUNTRY_CONSTANTS.md`](docs/ADDING_COUNTRY_CONSTANTS.md) — how to add verified tax constants for a new country or tax year
+- [`docs/FEATURES.md`](docs/FEATURES.md) — full feature backlog
+- [`docs/FORECAST_SPEC.md`](docs/FORECAST_SPEC.md) — AI forecast + insights feature spec
 
 ---
 
@@ -216,8 +222,8 @@ Key files to review:
 - src/index.ts (Bun server and API routes)
 - src/lib/parser.ts (US return parsing)
 - src/lib/india-parser.ts (India ITR parsing)
-- src/lib/storage.ts (local storage — US)
-- src/lib/india-storage.ts (local storage — India)
+- src/lib/country-storage.ts (generic local storage for all countries)
+- src/lib/storage.ts (US legacy storage)
 - src/lib/pdf-utils.ts (PDF unwrapping)
 - src/App.tsx (React frontend)
 ```
