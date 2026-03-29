@@ -2,7 +2,7 @@
 
 # TaxLens
 
-Visualize, understand, and plan your taxes. Parse US (1040) and India (ITR) returns from PDF, explore multi-year trends, get AI-powered retroactive insights per year, and generate a forward forecast — all with your tax history as context.
+Visualize, understand, and plan your taxes. Parse tax returns from PDF, explore multi-year trends, get AI-powered retroactive insights per year, and generate a forward forecast — all with your full tax history as context.
 
 Forked from [brianlovin/tax-ui](https://github.com/brianlovin/tax-ui).
 
@@ -10,17 +10,16 @@ Forked from [brianlovin/tax-ui](https://github.com/brianlovin/tax-ui).
 
 ## Features
 
-- **US returns (1040)** — parse PDFs into structured data: income, deductions, brackets, refund/owed, effective rate
-- **India returns (ITR-1 / ITR-2)** — import from Indian IT portal PDFs including Java-serialized wrappers; capital gains, TDS, advance tax, YoY trends
+- **Multi-country returns** — parse PDFs into structured data per country. Included out of the box: 🇺🇸 US (1040) and 🇮🇳 India (ITR-1 / ITR-2). Add any country via the plugin system — see [docs/ADDING_COUNTRY.md](docs/ADDING_COUNTRY.md).
 - **Multi-year summary** — YoY charts, effective rate trend, income mix, refund history across all years
 - **By Year view** — detailed breakdown per year with charts and receipt-style layout
-- **Tax bracket visualizer** — color-coded stacked bar showing exactly where taxable income lands across each bracket, per-bracket income and tax, headroom to the next bracket
-- **What-if simulator** — sliders for 401(k) top-up, IRA, deductions, and capital gains; bracket bar updates live with a marker at your original position
-- **Retroactive insights** — per-year "what could you have done differently" analysis: bracket optimization, capital gains harvesting, deduction opportunities, India regime comparison
-- **AI Forecast** — Claude reasons over your full tax history to project next year's liability, surface action items, bracket position, and risk flags — no manual input
-- **Verified tax constants** — IRS bracket thresholds, standard deductions, LTCG rates, and contribution limits for 2018–2026; India tax slabs (old/new regimes), surcharge, cess, and deduction caps for FY 2018–2025 — hardcoded from authoritative sources and injected into every prompt
+- **Tax bracket visualizer** — color-coded stacked bar showing exactly where taxable income lands across each bracket, per-bracket income and tax, headroom to the next bracket (US)
+- **What-if simulator** — sliders for 401(k) top-up, IRA, deductions, and capital gains; bracket bar updates live with a marker at your original position (US)
+- **Retroactive insights** — per-year "what could you have done differently" analysis powered by Claude: bracket optimization, capital gains harvesting, deduction opportunities, country-specific regime comparisons
+- **AI Forecast** — Claude reasons over your full tax history across all countries to project next year's liability, surface action items, and flag risks — no manual input
+- **Verified tax constants** — bracket thresholds, deduction limits, and contribution caps hardcoded from authoritative sources and injected into every prompt so Claude uses exact figures rather than training-data estimates. Currently included: US (IRS) 2018–2026, India (Income Tax India) FY 2018–2025.
 - **Chat with Claude** — year-aware conversation with your full tax history as context; ask what-ifs from any view
-- **Country toggle** — switch between 🇺🇸 US and 🇮🇳 India views; extensible plugin architecture to add any country without touching core app code
+- **Country toggle** — switch between countries in the sidebar; appears automatically when you have data for more than one country
 
 ---
 
@@ -32,24 +31,25 @@ Forked from [brianlovin/tax-ui](https://github.com/brianlovin/tax-ui).
 curl -fsSL https://bun.sh/install | bash
 ```
 
-### 2. Get an Anthropic API Key
-
-Get a key from [console.anthropic.com](https://console.anthropic.com/settings/keys). Add it to `.env`:
-
-```
-ANTHROPIC_API_KEY=sk-ant-...
-```
-
-### 3. Run
+### 2. Clone and install
 
 ```bash
 git clone https://github.com/harshitbshah/tax-ui
 cd tax-ui
 bun install
+```
+
+### 3. Run
+
+```bash
 bun run dev
 ```
 
-Open [localhost:3005](http://localhost:3005).
+Open [localhost:3005](http://localhost:3005). On first launch, the app will prompt you to enter your Anthropic API key — get one from [console.anthropic.com](https://console.anthropic.com/settings/keys). Alternatively, add it to a `.env` file before starting:
+
+```
+ANTHROPIC_API_KEY=sk-ant-...
+```
 
 ---
 
@@ -59,13 +59,13 @@ Open [localhost:3005](http://localhost:3005).
 
 **US (1040):** Upload PDFs directly in the browser — drag-and-drop or the file picker. One PDF per tax year. The server parses it with Claude Sonnet and stores the result locally.
 
-**India (ITR):** Use the CLI script:
+**Other countries (e.g. India ITR):** Each country plugin defines its own upload trigger. India returns can be uploaded via the sidebar menu, or via the CLI script for bulk import:
 
 ```bash
 ANTHROPIC_API_KEY=sk-... bun run scripts/import-india.ts path/to/itr.pdf
 ```
 
-Supports ITR-1 (Sahaj) and ITR-2. Handles PDFs from the Indian IT portal, including the Java-serialized wrapper format.
+Supports ITR-1 (Sahaj) and ITR-2, including the Java-serialized wrapper format from the Indian IT portal.
 
 ---
 
@@ -77,7 +77,7 @@ The default landing view. Shows:
 - Refund/owed history
 - All-years table with key metrics
 
-Switch between US and India with the toggle at the top of the sidebar.
+If you have data for multiple countries, use the toggle at the top of the sidebar to switch between them.
 
 ![Summary view](docs/screenshots/summary.png)
 
@@ -89,7 +89,7 @@ Select any year from the sidebar. Toggle between **Receipt** (detailed line-item
 
 ![Per-year receipt breakdown](docs/screenshots/by-year-receipt.png)
 
-**Charts tab** shows three tools:
+**Charts tab** shows three tools (US):
 
 1. **Federal Tax Bracket Visualizer** — a color-coded stacked bar (green 10% → red 37%) showing exactly where taxable income lands. Each bracket shows income in the band and the tax it generated. The marginal bracket is highlighted with a "you are here" label; headroom to the next bracket is shown in gray. If the bracket-computed tax differs from the filed amount by >$500, a note explains why (AMT, QBI deduction, etc.).
 
@@ -105,11 +105,11 @@ Select any year from the sidebar. Toggle between **Receipt** (detailed line-item
 
    ![What-if simulator with sliders engaged](docs/screenshots/what-if-simulator.png)
 
-3. **Income breakdown** and **waterfall charts** (existing).
+3. **Income breakdown** and **waterfall charts**.
 
-**Retroactive Insights** appear below the receipt on the Receipt tab. Click **Generate →** to ask Claude what you could have done differently to reduce your tax bill for that year — bracket optimization, capital gains harvesting, deduction opportunities, India old vs. new regime comparison. Results are cached; click **⟳ Regenerate** to refresh.
+**Retroactive Insights** appear below the receipt on the Receipt tab. Click **Generate →** to ask Claude what you could have done differently to reduce your tax bill for that year. Results are cached; click **⟳ Regenerate** to refresh.
 
-A badge shows whether verified constants are on file for that year (green ✓ US + India) or whether Claude is using its training data (amber ⚠).
+A badge shows whether verified constants are on file for that year (green ✓) or whether Claude is estimating from training data (amber ⚠).
 
 ![Retroactive insights panel](docs/screenshots/insights-panel.png)
 
@@ -117,20 +117,18 @@ A badge shows whether verified constants are on file for that year (green ✓ US
 
 ### Forecast view
 
-Click **Forecast** in the sidebar Views section. Click **Generate Forecast →** to have Claude analyze your full tax history and produce a structured projection for next year:
+Click **Forecast** in the sidebar. Click **Generate Forecast →** to have Claude analyze your full tax history across all countries and produce a structured projection for next year:
 
-- **Projected tax liability** — federal + state, with low/high range
+- **Projected tax liability** — with low/high range
 - **Effective rate** — projected with range
 - **Estimated outcome** — likely refund or owed at filing
-- **Bracket position** — where your projected income lands, with headroom to the next bracket
+- **Bracket position** — where your projected income lands, with headroom to the next bracket (US)
 - **AI assumptions** — what Claude inferred (salary growth, capital gains variance, deduction patterns) with confidence levels
 - **Action items** — forward-looking optimizations and lessons carried from past years
 - **Risk flags** — genuine uncertainties that could shift the projection
-- **India regime comparison** — if India returns are present, old vs. new regime recommendation for the upcoming year
+- **Country-specific sections** — e.g. India old vs. new regime recommendation when India returns are present
 
 Generation runs in the background — you can navigate to other views while Claude works and return to see the result. Click **⟳ Regenerate** to refresh. Results are cached across page loads and server restarts.
-
-The header shows amber ⚠ badges only for years where IRS constants are not on file (nothing shown when all years are verified).
 
 ![AI forecast view](docs/screenshots/forecast.png)
 
@@ -138,7 +136,7 @@ The header shows amber ⚠ badges only for years where IRS constants are not on 
 
 ### Chat
 
-Click the chat icon in the sidebar footer to open the chat panel. Claude has access to your full tax history and knows which year you're currently viewing. Use it for what-if questions:
+Click the chat icon in the sidebar footer to open the chat panel. Claude has access to your full tax history across all countries and knows which year you're currently viewing. Use it for what-if questions:
 
 - "What if I sell my NVDA shares this year?"
 - "What if I don't get a bonus?"
@@ -153,15 +151,16 @@ Follow-up suggestions appear after each response.
 
 TaxLens hardcodes tax constants from authoritative government sources and injects them into every forecast and insights prompt so Claude uses verified figures rather than training-data recall.
 
-**US (IRS):** bracket thresholds, standard deductions, LTCG rates, and 401(k)/IRA contribution limits for **2018–2026** (2025 reflects OBBBA amendments; 2026 LTCG pending).
+Currently included:
 
-**India (Income Tax India):** old and new regime slabs, standard deduction, 87A rebate, surcharge thresholds, 4% cess, and 80C/80D/80CCD deduction caps for **FY 2018–2025**.
+- **US (IRS):** bracket thresholds, standard deductions, LTCG rates, and 401(k)/IRA contribution limits for **2018–2026** (2025 reflects OBBBA amendments; 2026 LTCG pending)
+- **India (Income Tax India):** old and new regime slabs, standard deduction, 87A rebate, surcharge thresholds, 4% cess, and 80C/80D/80CCD deduction caps for **FY 2018–2025**
 
 Badge meanings:
 - **Green ✓** — verified constants on file; Claude will use exact figures
 - **Amber ⚠** — no constants on file for this year; Claude will estimate from training data and flag uncertainty
 
-To update constants for a new tax year or add a new country, see `docs/ADDING_COUNTRY_CONSTANTS.md`.
+To update constants for a new tax year or add constants for a new country, see [`docs/ADDING_COUNTRY_CONSTANTS.md`](docs/ADDING_COUNTRY_CONSTANTS.md).
 
 ---
 
@@ -188,7 +187,7 @@ bun run lint         # ESLint + Prettier
 
 All data stays local. Tax return PDFs are sent to Anthropic's API (your key) for parsing and then stored on your machine. Nothing goes to any other server.
 
-- `.tax-returns.json` and `.india-tax-returns.json` are gitignored — never committed
+- All return data files (`.tax-returns.json`, `.<country>-tax-returns.json`) are gitignored — never committed
 - API key stays in `.env` — never committed
 - No analytics, no telemetry, no cloud storage
 
@@ -223,7 +222,6 @@ Key files to review:
 - src/lib/parser.ts (US return parsing)
 - src/lib/india-parser.ts (India ITR parsing)
 - src/lib/country-storage.ts (generic local storage for all countries)
-- src/lib/storage.ts (US legacy storage)
 - src/lib/pdf-utils.ts (PDF unwrapping)
 - src/App.tsx (React frontend)
 ```
