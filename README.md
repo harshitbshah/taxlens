@@ -2,13 +2,13 @@
 
 # TaxLens
 
-Every April, you sign your tax return and file it away. Maybe you notice the refund or the amount owed. Then you move on.
+Every year, you file your taxes and move on. Maybe you notice the refund or the amount owed. Then you put it away and don't think about it again.
 
 But your tax returns are the most accurate financial record you have — verified income, actual tax paid, real deductions taken. Not estimates. Not projections. Ground truth, for every year you've filed. And almost nobody reads them.
 
-The problem isn't that people don't care. It's timing. By the time you're holding your 1040, the year it covers is already three months closed. Every decision that could have changed that number — maxing your 401(k), harvesting losses, adjusting withholding, timing a bonus — had a deadline you already missed. So you file, forget, and repeat.
+The problem isn't that people don't care. It's timing. By the time you're filing, the year you're reporting on is already history. Every decision that could have changed that number — maximizing retirement contributions, harvesting losses, adjusting withholding, timing a bonus — had a deadline you already missed. So you file, forget, and repeat.
 
-One return tells you little. Seven returns tell you your actual effective rate trajectory, whether you've been systematically over-withholding, how your income mix has shifted, and which years you left real money on the table. These patterns are invisible until you look at them all at once — and they're exactly what a good tax advisor would walk you through, if most people could afford one.
+One return tells you little. Several years of returns tell you your actual effective rate trajectory, whether you've been systematically over-withholding, how your income mix has shifted, and which years you left real money on the table. These patterns are invisible until you look at them all at once — and they're exactly what a good tax advisor would walk you through, if most people could afford one.
 
 TaxLens is that analysis, built from your actual data. Drop in your PDFs — US 1040s, India ITRs, or both. Claude parses them, reasons over your full history, and surfaces what you could have done differently and what to do before this year closes. Everything runs locally. No accounts, no cloud, no subscription.
 
