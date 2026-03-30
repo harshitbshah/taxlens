@@ -65,7 +65,9 @@ test.describe("Screenshot capture", () => {
     await setup(page);
     await page.getByText("By Year", { exact: true }).first().click();
     await page.waitForTimeout(600);
-    await page.evaluate(() => document.querySelectorAll(".overflow-y-auto").forEach((el) => el.scrollTo(0, 0)));
+    await page.evaluate(() =>
+      document.querySelectorAll(".overflow-y-auto").forEach((el) => el.scrollTo(0, 0)),
+    );
     await addBottomFade(page);
     await page.screenshot({ path: path.join(SCREENSHOTS_DIR, "by-year-receipt.png") });
   });
@@ -76,7 +78,9 @@ test.describe("Screenshot capture", () => {
     await page.waitForTimeout(600);
     await page.getByRole("button", { name: "charts", exact: true }).first().click();
     await page.waitForTimeout(800);
-    await page.evaluate(() => document.querySelectorAll(".overflow-y-auto").forEach((el) => el.scrollTo(0, 0)));
+    await page.evaluate(() =>
+      document.querySelectorAll(".overflow-y-auto").forEach((el) => el.scrollTo(0, 0)),
+    );
     await page.waitForTimeout(300);
     await addBottomFade(page);
     await page.screenshot({ path: path.join(SCREENSHOTS_DIR, "bracket-visualizer.png") });

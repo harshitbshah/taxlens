@@ -13,6 +13,7 @@ Tax return PDF parser using Claude API and Bun.
 
 - `bun run dev` — Start dev server with HMR
 - `bun run build` — Production build
+- `bun run screenshots` — Capture all README screenshots via Playwright (dev server must be running with real data)
 
 ## Docs
 
@@ -50,7 +51,22 @@ Tax return PDF parser using Claude API and Bun.
 - `scripts/import-india.ts` — CLI: parse India PDFs and save to `.india-tax-returns.json`
 
 ### Frontend
-- `src/App.tsx` — React entry; `ActiveCountry = string`; `countryReturns: Record<string, Record<number, unknown>>` state; fetches all registered non-US countries on startup; `handleUploadCountryReturn(country, file)` / `handleDeleteCountryReturn(country, year)` generic handlers
+- `src/App.tsx` — React entry; `ActiveCountry = string`; `countryReturns: Record<string, Record<number, unknown>>` state; fetches all registered non-US countries on startup; `handleUploadCountryReturn(country, file)` / `handleDeleteCountryReturn(country, year)` generic handlers; `forecastProfiles: Record<string, ForecastProfile>` for per-country forecast inputs
+
+### Forecast profile (US only)
+- `src/lib/forecast-profile-schema.ts` — browser-safe: `ForecastProfile` type, `countFilledFields()`, `confidenceLevel()`. Import this in client components.
+- `src/lib/forecast-profile.ts` — server-only (Bun I/O): `getForecastProfile(country)`, `saveForecastProfile(country, profile)`. Never import in browser code.
+- `src/components/ForecastProfilePanel.tsx` — slide-in panel; shown as flex sibling to forecast content when `isUs && isPanelOpen`
+- `/api/forecast-profile` GET/POST — reads/writes `.forecast-profile.json` in DATA_DIR
+- `FORECAST_PROMPT_VERSION` in `forecast-cache.ts` — bump this whenever forecast prompt logic changes significantly to auto-invalidate stale caches
+
+### Sidebar behaviour
+- `onOpenStart` in Sidebar is country-aware: India tab triggers file input, other countries open onboarding modal. `onUploadIndia` prop no longer exists — do not re-add it.
+
+### E2E tests
+- `playwright.config.ts` — targets localhost:3005; `testMatch: "**/*.pw.ts"` keeps Playwright files invisible to `bun test`
+- `tests/e2e/smoke.pw.ts` — functional smoke tests (app loads, nav, country UI, forecast, chat)
+- `tests/e2e/screenshots.pw.ts` — screenshot capture script; run with `bun run screenshots`; outputs to `docs/screenshots/`
 
 ### Tax constants
 - `src/lib/constants/` — per-country modules; each owns its type, data, getter, and prompt formatter

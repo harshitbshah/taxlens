@@ -4,6 +4,60 @@ One entry per checkpoint. Most recent first.
 
 ---
 
+## 2026-03-29 (Forecast profile panel, Sidebar fix, Playwright E2E, README overhaul)
+
+**Done:**
+
+**Forecast profile panel (US only):**
+- **`src/lib/forecast-profile-schema.ts`** (NEW) — browser-safe types + utilities: `ForecastProfile` type, `TOTAL_PROFILE_FIELDS = 7`, `countFilledFields()`, `confidenceLevel()`. Split from server module to prevent `process is not defined` runtime error in browser bundle.
+- **`src/lib/forecast-profile.ts`** (NEW, server-only) — re-exports schema + adds Bun file I/O: `getForecastProfile(country)`, `saveForecastProfile(country, profile)`. Writes to `.forecast-profile.json` in DATA_DIR.
+- **`src/components/ForecastProfilePanel.tsx`** (NEW) — slide-in panel (w-80) with sections: Income (salary1/2, bonusLow/High 1/2, RSU), Retirement (k401_1/2, backdoor Roth radio), Withholding (ytdWithholding + month select + annualized pace), Capital events. "Save & Regenerate" triggers regeneration; "Clear all" resets.
+- **`src/lib/forecaster.ts`** — added `buildProfileSection(profile, projectedYear)` injecting known inputs as constraints into prompt (e.g. don't suggest maxing 401k if already at limit). `FORECAST_PROMPT_VERSION` bumped `"3"` → `"4"`.
+- **`src/index.ts`** — `/api/forecast-profile` GET/POST route; forecast POST now fetches profile and passes to `generateForecast`.
+- **`src/components/ForecastView.tsx`** — `ConfidenceBanner` (filled count, label, toggle button); profile panel shown as flex sibling when `isUs && isPanelOpen`; empty state "add inputs" link.
+- **`src/components/MainPanel.tsx`** + **`src/App.tsx`** — profile state (`forecastProfiles: Record<string, ForecastProfile>`), `handleSaveProfile`, passed through to ForecastView.
+
+**Sidebar country-aware menu:**
+- Removed `onUploadIndia` prop entirely from `Sidebar`. `onOpenStart` is now country-aware: India tab triggers the file input; other countries open the onboarding modal.
+- Menu label is "Import India ITR" on India tab (when `hasUserData`), "Add return" on others, "Get started" when no data.
+
+**Chat bug fix:**
+- `effectiveReturns` (US-only) replaced with `activeReturns` (country-scoped) in two places in App.tsx — chat was always sending US data regardless of active country.
+
+**Playwright E2E:**
+- `playwright.config.ts` — targets localhost:3005, testDir `./tests/e2e`, `testMatch: "**/*.pw.ts"` (prevents Bun from picking them up).
+- `tests/e2e/smoke.pw.ts` — 9 tests: app loads, sidebar nav, country-specific UI (Import India ITR guard), forecast tab, chat toggle.
+- `tests/e2e/screenshots.pw.ts` — captures all 8 README screenshots: hero, summary, by-year-receipt, bracket-visualizer, what-if-simulator, insights-panel, forecast, forecast-profile. Setup: 1280×960, chat closed via localStorage, bottom+right fade-to-white overlay for clean crops.
+- `package.json` — added `test:e2e` and `screenshots` scripts; `@playwright/test` devDependency.
+
+**README overhaul:**
+- Hero image replaced (old brianlovin dark-mode → current TaxLens UI, 1280×960).
+- Intro rewritten as a narrative PRFAQ opener: the "file and forget" problem, timing trap, multi-year patterns, accountant gap, then TaxLens as the solution — country-agnostic throughout.
+- "Forked from" moved to footnote at bottom.
+- "2025 Inputs panel" → "Inputs panel" (de-year-hardcoded).
+- "OBBBA" spelled out as "One Big Beautiful Bill Act".
+- Forecast inputs panel added to Features list.
+- Importing returns section made country-agnostic.
+- img dimensions corrected to 1280×960.
+- Requirements section expanded with API key link, cost context, scan quality note.
+- GitHub repo About description updated: "Your tax history in one place — trends, what-ifs, and a forecast for next year. Runs locally."
+- Homepage URL cleared (was pointing to brianlovin's deployment).
+- Topics added: taxes, personal-finance, claude, anthropic, typescript, react, bun.
+
+**Decisions:**
+- Server/client split for forecast profile: followed existing CountryServerPlugin/CountryClientPlugin pattern. Browser components import from `forecast-profile-schema.ts` only; server imports `forecast-profile.ts`.
+- `.pw.ts` extension convention for Playwright tests: cleanly separates E2E from Bun unit tests without needing `bunfig.toml` exclude hacks.
+- Screenshot fade-to-white overlay (bottom + right): more intentional than hard crops, signals "more content below/right" without looking broken. Injected via `page.evaluate()` before each capture.
+- AI not highlighted as a feature label in README/About description — embedded naturally in the narrative per user preference.
+
+**Known gaps:**
+- `scripts/fix-india-tax.ts` is untracked — not committed (likely a one-off migration script, not part of the app).
+- Remaining lint warnings in `src/App.tsx` (unused `isUploading`, hook deps) and `src/index.ts` (`any` type, unused `returns`) are pre-existing, not introduced this session.
+
+**Next:** Items from FEATURES.md. India FY 2026 constants after April Union Budget.
+
+---
+
 ## 2026-03-28 (Per-country forecasts + forecast cache versioning)
 
 **Done:**
