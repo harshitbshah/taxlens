@@ -18,16 +18,29 @@ async function setup(page: import("@playwright/test").Page) {
   await page.waitForLoadState("networkidle");
 }
 
-// Adds a fade-to-white gradient at the bottom so content doesn't look abruptly cut.
+// Adds fade-to-white gradients at the bottom and right so content doesn't look abruptly cut.
 async function addBottomFade(page: import("@playwright/test").Page) {
   await page.evaluate(() => {
-    const el = document.createElement("div");
-    el.id = "screenshot-fade";
-    el.style.cssText =
-      "position:fixed;bottom:0;left:0;right:0;height:80px;" +
-      "background:linear-gradient(to bottom,transparent,white);" +
-      "pointer-events:none;z-index:99999;";
-    document.body.appendChild(el);
+    const styles: [string, string][] = [
+      [
+        "screenshot-fade-bottom",
+        "position:fixed;bottom:0;left:0;right:0;height:80px;" +
+          "background:linear-gradient(to bottom,transparent,white);" +
+          "pointer-events:none;z-index:99999;",
+      ],
+      [
+        "screenshot-fade-right",
+        "position:fixed;top:0;right:0;bottom:0;width:80px;" +
+          "background:linear-gradient(to right,transparent,white);" +
+          "pointer-events:none;z-index:99999;",
+      ],
+    ];
+    styles.forEach(([id, css]) => {
+      const el = document.createElement("div");
+      el.id = id;
+      el.style.cssText = css;
+      document.body.appendChild(el);
+    });
   });
 }
 
