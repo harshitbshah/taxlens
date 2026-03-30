@@ -12,10 +12,23 @@ const SCREENSHOTS_DIR = path.resolve("docs/screenshots");
 test.describe("Screenshot capture", () => {
   test("summary view", async ({ page }) => {
     await page.goto("/");
+    await page.evaluate(() => localStorage.setItem("tax-chat-open", "false"));
+    await page.reload();
     await page.waitForLoadState("networkidle");
     await page.getByText("Summary", { exact: true }).first().click();
     await page.waitForTimeout(600);
     await page.screenshot({ path: path.join(SCREENSHOTS_DIR, "summary.png") });
+  });
+
+  test("hero", async ({ page }) => {
+    await page.setViewportSize({ width: 1280, height: 640 });
+    await page.goto("/");
+    await page.evaluate(() => localStorage.setItem("tax-chat-open", "false"));
+    await page.reload();
+    await page.waitForLoadState("networkidle");
+    await page.getByText("Summary", { exact: true }).first().click();
+    await page.waitForTimeout(600);
+    await page.screenshot({ path: path.join(SCREENSHOTS_DIR, "hero.png") });
   });
 
   test("by-year receipt", async ({ page }) => {

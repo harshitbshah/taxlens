@@ -1,8 +1,12 @@
-<img width="1280" height="640" alt="tax-ui-github-og" src="https://github.com/user-attachments/assets/780f6743-669c-44e5-96fb-cc65249b5c75" />
+<img width="1280" height="640" alt="TaxLens — summary view" src="docs/screenshots/hero.png" />
 
 # TaxLens
 
-Visualize, understand, and plan your taxes. Parse tax returns from PDF, explore multi-year trends, get AI-powered retroactive insights per year, and generate a forward forecast — all with your full tax history as context.
+**Your tax returns hold years of financial truth. Most people file them and never look again.**
+
+TaxLens changes that. Drop in your PDFs — US 1040s, India ITRs, or both — and get a clear picture of where your money actually went, what you could have done differently, and what to do before next April. Claude parses the PDFs, reasons over your full history, and surfaces insights you'd otherwise only get from an accountant.
+
+Everything runs locally on your machine. No accounts, no cloud, no subscription.
 
 Forked from [brianlovin/tax-ui](https://github.com/brianlovin/tax-ui).
 
