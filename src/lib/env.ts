@@ -1,5 +1,3 @@
-import { isElectron } from "./electron";
-
 const DEV_DEMO_OVERRIDE_KEY = "dev-demo-override";
 
 export function getHost(): string | null {
@@ -14,7 +12,6 @@ export function isLocalhostHost(host: string | null): boolean {
 
 export function isHostedEnvironment(): boolean {
   if (typeof window === "undefined") return false;
-  if (isElectron()) return false;
   return !isLocalhostHost(getHost());
 }
 
@@ -35,7 +32,6 @@ export function setDevDemoOverride(value: boolean | null): void {
 
 export function resolveDemoMode(override: boolean | null, serverIsDemo: boolean): boolean {
   if (override !== null) return override;
-  if (isElectron()) return false;
   if (serverIsDemo) return true;
   return isHostedEnvironment();
 }

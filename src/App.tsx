@@ -14,7 +14,6 @@ import { Sidebar } from "./components/Sidebar";
 import { UploadModal } from "./components/UploadModal";
 import { CLIENT_REGISTRY } from "./countries/views";
 import { sampleReturns } from "./data/sampleData";
-import { isElectron } from "./lib/electron";
 import { getDevDemoOverride, isHostedEnvironment, resolveDemoMode } from "./lib/env";
 import type { ForecastProfile } from "./lib/forecast-profile-schema";
 import type { ForecastResponse } from "./lib/forecaster";
@@ -34,7 +33,6 @@ import type {
 } from "./lib/schema";
 import { extractYearFromFilename } from "./lib/year-extractor";
 
-export type UpdateStatus = "available" | "downloading" | "ready";
 export type ActiveCountry = string;
 // SelectedView is re-exported from nav.ts for external use
 export type { SelectedView };
@@ -45,66 +43,6 @@ export type ForecastState =
   | { status: "generating" }
   | { status: "loaded"; data: ForecastResponse }
   | { status: "error"; message: string };
-
-function useElectronUpdater(devOverride: UpdateStatus | null) {
-  const [status, setStatus] = useState<UpdateStatus | null>(null);
-  const [version, setVersion] = useState<string | null>(null);
-  const [progress, setProgress] = useState(0);
-
-  useEffect(() => {
-    if (!isElectron()) return;
-    const api = window.electronAPI?.update;
-    if (!api) return;
-
-    const unsubs: (() => void)[] = [];
-
-    if (api.onAvailable) {
-      unsubs.push(
-        api.onAvailable((data) => {
-          setVersion(data.version);
-          setStatus("available");
-        }),
-      );
-    }
-    if (api.onProgress) {
-      unsubs.push(
-        api.onProgress((data) => {
-          setStatus("downloading");
-          setProgress(Math.round(data.percent));
-        }),
-      );
-    }
-    if (api.onDownloaded) {
-      unsubs.push(
-        api.onDownloaded(() => {
-          setStatus("ready");
-        }),
-      );
-    }
-    if (api.onError) {
-      unsubs.push(
-        api.onError((data) => {
-          console.error("Auto-update error:", data.message);
-          setStatus(null);
-        }),
-      );
-    }
-
-    return () => unsubs.forEach((fn) => fn());
-  }, []);
-
-  const effective = devOverride ?? status;
-
-  if (!effective) return null;
-
-  return {
-    status: effective,
-    version: devOverride ? "0.0.0-dev" : version,
-    progress: devOverride === "downloading" ? 42 : progress,
-    download: () => window.electronAPI?.update?.download?.(),
-    install: () => window.electronAPI?.update?.install?.(),
-  };
-}
 
 const CHAT_OPEN_KEY = "tax-chat-open";
 const CHAT_HISTORY_KEY = "tax-chat-history";
@@ -223,9 +161,6 @@ export function App() {
   const [isMobile, setIsMobile] = useState(false);
   const hasShownOnboardingRef = useRef(false);
   const indiaUploadRef = useRef<HTMLInputElement>(null);
-  const [devUpdateOverride, setDevUpdateOverride] = useState<UpdateStatus | null>(null);
-  const updater = useElectronUpdater(devUpdateOverride);
-
   const effectiveIsDemo = resolveDemoMode(devDemoOverride, state.isDemo);
   const shouldShowChat = !effectiveIsDemo || !isMobile;
   const effectiveReturns = effectiveIsDemo ? sampleReturns : state.returns;
@@ -1003,45 +938,11 @@ export function App() {
         </>
       )}
 
-      {updater && (
-        <div className="get-started-pill dark:shadow-contrast fixed right-6 bottom-6 z-50 flex h-10 items-center gap-2 rounded-full bg-black pr-1.5 pl-4 text-sm text-white shadow-lg transition-all duration-300 ease-out dark:bg-zinc-800">
-          {updater.status === "available" && (
-            <>
-              <span className="whitespace-nowrap">v{updater.version} available</span>
-              <button
-                onClick={updater.download}
-                className="cursor-pointer rounded-full bg-blue-500 px-3 py-1 text-sm font-medium text-white hover:bg-blue-600"
-              >
-                Update
-              </button>
-            </>
-          )}
-          {updater.status === "downloading" && (
-            <span className="pr-2.5 whitespace-nowrap tabular-nums">
-              Downloading {updater.progress}%
-            </span>
-          )}
-          {updater.status === "ready" && (
-            <>
-              <span className="whitespace-nowrap">Update ready</span>
-              <button
-                onClick={updater.install}
-                className="cursor-pointer rounded-full bg-blue-500 px-3 py-1 text-sm font-medium text-white hover:bg-blue-600"
-              >
-                Restart
-              </button>
-            </>
-          )}
-        </div>
-      )}
-
       {state.isDev && (
         <DevTools
           devDemoOverride={devDemoOverride}
           onDemoOverrideChange={setDevDemoOverride}
           onTriggerError={() => setDevTriggerError(true)}
-          devUpdateOverride={devUpdateOverride}
-          onUpdateOverrideChange={setDevUpdateOverride}
         />
       )}
     </div>

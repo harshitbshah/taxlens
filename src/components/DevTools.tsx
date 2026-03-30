@@ -1,7 +1,6 @@
 import { useCallback, useState } from "react";
 import { useHotkeys } from "react-hotkeys-hook";
 
-import type { UpdateStatus } from "../App";
 import { setDevDemoOverride } from "../lib/env";
 import { SetupDialogPreview } from "./SetupDialogPreview";
 
@@ -16,33 +15,13 @@ function getDemoOverrideLabel(value: boolean | null): string {
   return value ? "demo: on" : "demo: off";
 }
 
-const UPDATE_STATES: (UpdateStatus | null)[] = [null, "available", "downloading", "ready"];
-
-function cycleUpdateOverride(current: UpdateStatus | null): UpdateStatus | null {
-  const idx = UPDATE_STATES.indexOf(current);
-  return UPDATE_STATES[(idx + 1) % UPDATE_STATES.length]!;
-}
-
-function getUpdateOverrideLabel(value: UpdateStatus | null): string {
-  if (value === null) return "update: off";
-  return `update: ${value}`;
-}
-
 interface DevToolsProps {
   devDemoOverride: boolean | null;
   onDemoOverrideChange: (value: boolean | null) => void;
   onTriggerError: () => void;
-  devUpdateOverride: UpdateStatus | null;
-  onUpdateOverrideChange: (value: UpdateStatus | null) => void;
 }
 
-export function DevTools({
-  devDemoOverride,
-  onDemoOverrideChange,
-  onTriggerError,
-  devUpdateOverride,
-  onUpdateOverrideChange,
-}: DevToolsProps) {
+export function DevTools({ devDemoOverride, onDemoOverrideChange, onTriggerError }: DevToolsProps) {
   const [isVisible, setIsVisible] = useState(false);
   const [showPreview, setShowPreview] = useState(false);
 
@@ -52,19 +31,11 @@ export function DevTools({
     onDemoOverrideChange(newValue);
   }, [devDemoOverride, onDemoOverrideChange]);
 
-  const handleUpdateToggle = useCallback(() => {
-    onUpdateOverrideChange(cycleUpdateOverride(devUpdateOverride));
-  }, [devUpdateOverride, onUpdateOverrideChange]);
-
   useHotkeys("mod+shift+period", () => setIsVisible((v) => !v), {
     preventDefault: true,
   });
 
   useHotkeys("shift+d", handleDemoToggle, {
-    preventDefault: true,
-  });
-
-  useHotkeys("shift+u", handleUpdateToggle, {
     preventDefault: true,
   });
 
@@ -79,13 +50,6 @@ export function DevTools({
         >
           {getDemoOverrideLabel(devDemoOverride)}
           <span className="ml-1.5 opacity-50">Shift+D</span>
-        </button>
-        <button
-          onClick={handleUpdateToggle}
-          className="rounded border border-(--color-border) bg-(--color-bg-muted) px-2 py-1 font-mono text-xs text-(--color-text-muted) hover:border-(--color-text-muted) hover:text-(--color-text)"
-        >
-          {getUpdateOverrideLabel(devUpdateOverride)}
-          <span className="ml-1.5 opacity-50">Shift+U</span>
         </button>
         <button
           onClick={() => setShowPreview(true)}

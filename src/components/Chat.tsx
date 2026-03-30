@@ -3,7 +3,6 @@ import Markdown from "react-markdown";
 import remarkGfm from "remark-gfm";
 
 import { cn } from "../lib/cn";
-import { isElectron } from "../lib/electron";
 import { BrailleSpinner } from "./BrailleSpinner";
 import { Button } from "./Button";
 import { XMarkIcon } from "./XMarkIcon";
@@ -196,7 +195,6 @@ export function Chat({
       <header
         className={cn(
           "flex h-12 items-center justify-between border-b border-(--color-border) pr-2 pl-4",
-          isElectron() && "app-window-drag",
         )}
       >
         <span className="text-sm font-semibold">Chat</span>
