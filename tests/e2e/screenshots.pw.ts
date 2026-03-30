@@ -9,18 +9,18 @@ import path from "path";
 
 const SCREENSHOTS_DIR = path.resolve("docs/screenshots");
 
-test.describe("Screenshot capture", () => {
-  test("summary view", async ({ page }) => {
-    await page.goto("/");
-    await page.evaluate(() => localStorage.setItem("tax-chat-open", "false"));
-    await page.reload();
-    await page.waitForLoadState("networkidle");
-    await page.getByText("Summary", { exact: true }).first().click();
-    await page.waitForTimeout(600);
-    await page.screenshot({ path: path.join(SCREENSHOTS_DIR, "summary.png") });
-  });
+// Shared setup: taller viewport so content isn't cut, chat closed.
+async function setup(page: import("@playwright/test").Page) {
+  await page.setViewportSize({ width: 1280, height: 960 });
+  await page.goto("/");
+  await page.evaluate(() => localStorage.setItem("tax-chat-open", "false"));
+  await page.reload();
+  await page.waitForLoadState("networkidle");
+}
 
+test.describe("Screenshot capture", () => {
   test("hero", async ({ page }) => {
+    // Hero is a fixed banner size — keep it at 1280×640.
     await page.setViewportSize({ width: 1280, height: 640 });
     await page.goto("/");
     await page.evaluate(() => localStorage.setItem("tax-chat-open", "false"));
@@ -31,29 +31,29 @@ test.describe("Screenshot capture", () => {
     await page.screenshot({ path: path.join(SCREENSHOTS_DIR, "hero.png") });
   });
 
+  test("summary view", async ({ page }) => {
+    await setup(page);
+    await page.getByText("Summary", { exact: true }).first().click();
+    await page.waitForTimeout(600);
+    await page.screenshot({ path: path.join(SCREENSHOTS_DIR, "summary.png") });
+  });
+
   test("by-year receipt", async ({ page }) => {
-    await page.goto("/");
-    await page.waitForLoadState("networkidle");
+    await setup(page);
     await page.getByText("By Year", { exact: true }).first().click();
     await page.waitForTimeout(600);
     await page.screenshot({ path: path.join(SCREENSHOTS_DIR, "by-year-receipt.png") });
   });
 
   test("forecast view", async ({ page }) => {
-    await page.goto("/");
-    await page.waitForLoadState("networkidle");
+    await setup(page);
     await page.getByText("Forecast", { exact: true }).first().click();
     await page.waitForTimeout(800);
     await page.screenshot({ path: path.join(SCREENSHOTS_DIR, "forecast.png") });
   });
 
   test("forecast profile panel open", async ({ page }) => {
-    // Force chat closed via localStorage before the app boots
-    await page.goto("/");
-    await page.evaluate(() => localStorage.setItem("tax-chat-open", "false"));
-    await page.reload();
-    await page.waitForLoadState("networkidle");
-
+    await setup(page);
     await page.getByText("Forecast", { exact: true }).first().click();
     await page.waitForTimeout(800);
 
