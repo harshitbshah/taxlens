@@ -177,9 +177,9 @@ export function EditDialog({
                     value={charge.label}
                     onChange={(e) => updateCharge(i, "label", e.target.value)}
                     placeholder="STT, Brokerage, GST…"
-                    className="flex-1 rounded-lg border border-(--color-border) bg-(--color-bg-subtle) px-3 py-2 text-sm text-(--color-text) outline-none focus:border-(--color-text-muted)"
+                    className="w-32 shrink-0 rounded-lg border border-(--color-border) bg-(--color-bg-subtle) px-3 py-2 text-sm text-(--color-text) outline-none focus:border-(--color-text-muted)"
                   />
-                  <div className="relative w-48">
+                  <div className="relative flex-1">
                     <span className="pointer-events-none absolute top-1/2 left-3 -translate-y-1/2 text-sm text-(--color-text-muted)">
                       {currency}
                     </span>
