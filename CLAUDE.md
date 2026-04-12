@@ -18,7 +18,9 @@ Tax return PDF parser using Claude API and Bun.
 ## Docs
 
 - [`docs/ARCHITECTURE.md`](docs/ARCHITECTURE.md) — full system architecture, data flow, component map, model usage
+- [`docs/CLAUDE_CODE_IMPORT.md`](docs/CLAUDE_CODE_IMPORT.md) — design for Claude Code → TaxLens import path (parsing + analysis without API calls)
 - [`docs/FORECAST_SPEC.md`](docs/FORECAST_SPEC.md) — AI forecast + insights feature spec (5 phases, test requirements per phase)
+- [`docs/ANALYSIS_SPEC.md`](docs/ANALYSIS_SPEC.md) — Tax Analysis tab spec: Claude Code generates, TaxLens renders; POST /api/analysis accepts pre-generated JSON (no server-side AI calls)
 - [`docs/FEATURES.md`](docs/FEATURES.md) — full feature backlog
 - [`docs/PROGRESS.md`](docs/PROGRESS.md) — session-by-session progress log
 - [`docs/ADDING_COUNTRY_CONSTANTS.md`](docs/ADDING_COUNTRY_CONSTANTS.md) — how to add tax constants for a new country

@@ -4,6 +4,44 @@ One entry per checkpoint. Most recent first.
 
 ---
 
+## 2026-04-11 (SOLID refactoring + Analysis tab: Claude Code generates, TaxLens renders)
+
+**Done:**
+
+**SOLID refactoring (`SummaryCharts.tsx`, `MainPanel.tsx`, `App.tsx`):**
+- `GainLossBarChart` extracted in `SummaryCharts.tsx` — eliminated ~150 lines of duplicated recharts boilerplate; all three charts (Refund/Owed, Capital Gains, Tax-Advantaged P&L) now use it.
+- `usReturns` removed from `CommonProps` in `MainPanel.tsx`; replaced with `activeReturns as Record<number, TaxReturn>` cast gated by `isUs`.
+- `retirementAccounts?` / `onSaveRetirementAccounts?` moved out of `CommonProps` — now only on `ReceiptProps` and `SummaryProps` where they're actually needed.
+- `App.tsx`: split `commonProps` into lean base (4 fields) + `usViewProps`; `usViewProps` only spread on summary/receipt renders.
+
+**Analysis tab ("Claude Code generates, TaxLens renders" pattern):**
+
+Architecture decision: dropped the original 6-sequential-Haiku-call analyzer.ts approach entirely. Claude Code subscription tokens are effectively free; a locally-run Claude Code session produces richer, more contextual analysis than any automated pipeline. TaxLens is now a pure viewer — it renders pre-generated JSON, makes no AI calls for analysis.
+
+- **`src/lib/analysis-schema.ts`** (NEW) — `AnalysisSectionId`, `AnalysisSection`, `AnalysisResponse` types; `source: "claude_code" | "api"` audit trail; `parseAnalysisResponse(raw: unknown)` validator.
+- **`src/lib/analysis-cache.ts`** (NEW) — `getAnalysisCache`, `saveAnalysisCache`, `clearAnalysisCache`; CACHE_FILE is a function (not module-level const) so `process.env.TAX_UI_DATA_DIR` override in tests works correctly.
+- **`src/lib/analysis-schema.test.ts`** (NEW) — 18 tests; `parseAnalysisResponse` validation (8 cases) + cache operations (10 cases) with `mkdtemp`/`rm` isolation per test.
+- **`src/components/AnalysisPanel.tsx`** (NEW) — states: loading | empty | loaded | error; empty state has "Copy prompt for Claude Code" (auto-builds prompt with return JSON + schema + POST URL), "Paste JSON" dialog; loaded state renders collapsible `SectionCard`s in canonical order via `react-markdown` + `remark-gfm`; "⟳ Regenerate" clears cache → empty state.
+- **`src/components/MainPanel.tsx`** — added `"analysis"` to `YearViewMode`; `AnalysisPanel` rendered from MainPanel (not from country plugin views — it needs `year`, `country`, `returnData` props that don't fit the `{ data: unknown }` plugin shape).
+- **`src/index.ts`** — `/api/analysis` GET/POST/DELETE route + `POST /api/returns` and `POST /api/:country/returns` import paths for Claude Code-generated return JSON.
+- **`.gitignore`** — added `.analysis-cache.json`.
+- **`docs/ANALYSIS_SPEC.md`** — full rewrite capturing the architectural decision and "Claude Code generates, TaxLens renders" design.
+- **`docs/CLAUDE_CODE_IMPORT.md`** (NEW) — broader pattern doc; POST endpoint designs; `/parse-return` and `/analyze-taxes` skill specs.
+
+**Decisions:**
+- No `analyzer.ts`, no rate limiting, no prompt versioning for analysis — generation is external. ~4 days of planned work eliminated.
+- `CACHE_FILE` as a function so env-var test override works (module-level consts are evaluated at import time, before `beforeEach` sets `TAX_UI_DATA_DIR`).
+- AnalysisPanel in MainPanel (not plugin views) because its props are structural (`year`, `country`, `returnData`), not country-specific display.
+- `source` field in `AnalysisResponse` as audit trail: "claude_code" vs "api". No prompt versioning needed — generation happens outside TaxLens.
+
+**Known gaps:**
+- `.claude/commands/parse-return.md` and `.claude/commands/analyze-taxes.md` Claude Code skills not yet written.
+- 2025 ANALYSIS.md (in tax-planner project) not yet converted to `AnalysisResponse` JSON and POSTed — first real use of the tab pending.
+
+**Next:** Convert 2025 ANALYSIS.md → AnalysisResponse JSON, POST to populate the tab. Write Claude Code skill files. Items from FEATURES.md.
+
+---
+
 ## 2026-03-29 (Forecast profile panel, Sidebar fix, Playwright E2E, README overhaul)
 
 **Done:**

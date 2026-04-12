@@ -5,6 +5,8 @@ import { fileURLToPath } from "url";
 
 import { SERVER_REGISTRY } from "./countries/index";
 import index from "./index.html";
+import { clearAnalysisCache, getAnalysisCache, saveAnalysisCache } from "./lib/analysis-cache";
+import { parseAnalysisResponse } from "./lib/analysis-schema";
 import {
   clearCountryData,
   deleteCountryReturn,
@@ -17,6 +19,11 @@ import { generateForecast } from "./lib/forecaster";
 import { generateInsights } from "./lib/insights";
 import { clearInsightsCache, getInsightsCache, saveInsightsCache } from "./lib/insights-cache";
 import { extractYearFromPdf, parseTaxReturn } from "./lib/parser";
+import {
+  deleteRetirementAccounts,
+  getAllRetirementAccounts,
+  saveRetirementAccounts,
+} from "./lib/retirement-accounts";
 import {
   clearAllData,
   deleteReturn,
@@ -137,6 +144,25 @@ const routes: Record<string, any> = {
   "/api/returns": {
     GET: async () => {
       return Response.json(await getReturns());
+    },
+    // Claude Code import path: accepts a pre-parsed TaxReturn JSON, validates, and saves.
+    POST: async (req: Request) => {
+      const body = await req.json();
+      const plugin = SERVER_REGISTRY["us"];
+      if (!plugin) return Response.json({ error: "US plugin not registered" }, { status: 500 });
+      const migrated = plugin.migrateReturn ? plugin.migrateReturn(body) : body;
+      const result = plugin.schema.safeParse(migrated);
+      if (!result.success) {
+        return Response.json(
+          { error: "Invalid TaxReturn schema", issues: result.error.issues },
+          { status: 400 },
+        );
+      }
+      await saveReturn(result.data as import("./lib/schema").TaxReturn);
+      return Response.json({
+        success: true,
+        year: (result.data as import("./lib/schema").TaxReturn).year,
+      });
     },
   },
   "/api/returns/:year": {
@@ -290,6 +316,22 @@ const routes: Record<string, any> = {
       if (!plugin) return Response.json({ error: "Unknown country" }, { status: 404 });
       return Response.json(await getCountryReturns(plugin));
     },
+    // Claude Code import path: accepts a pre-parsed country return JSON, validates, and saves.
+    POST: async (req: Request & { params: { country: string } }) => {
+      const plugin = SERVER_REGISTRY[req.params.country];
+      if (!plugin) return Response.json({ error: "Unknown country" }, { status: 404 });
+      const body = await req.json();
+      const migrated = plugin.migrateReturn ? plugin.migrateReturn(body) : body;
+      const result = plugin.schema.safeParse(migrated);
+      if (!result.success) {
+        return Response.json(
+          { error: `Invalid ${plugin.code} return schema`, issues: result.error.issues },
+          { status: 400 },
+        );
+      }
+      await saveCountryReturn(plugin, result.data);
+      return Response.json({ success: true });
+    },
   },
   "/api/:country/returns/:year": {
     DELETE: async (req: Request & { params: { country: string; year: string } }) => {
@@ -394,6 +436,39 @@ const routes: Record<string, any> = {
 
     return new Response("Method Not Allowed", { status: 405 });
   },
+  // Literal path — year and country passed as query params.
+  // POST accepts pre-generated JSON from Claude Code (no server-side AI calls).
+  "/api/analysis": async (req: Request) => {
+    const url = new URL(req.url);
+    const year = Number(url.searchParams.get("year"));
+    const country = url.searchParams.get("country") || "us";
+    if (isNaN(year) || year === 0) return Response.json({ error: "Invalid year" }, { status: 400 });
+
+    if (req.method === "GET") {
+      const cached = await getAnalysisCache(year, country);
+      if (!cached) return new Response("Not found", { status: 404 });
+      return Response.json(cached);
+    }
+
+    if (req.method === "POST") {
+      let analysis;
+      try {
+        analysis = parseAnalysisResponse(await req.json());
+      } catch (e) {
+        const message = e instanceof Error ? e.message : "Invalid JSON";
+        return Response.json({ error: message }, { status: 400 });
+      }
+      await saveAnalysisCache(year, country, analysis);
+      return Response.json(analysis);
+    }
+
+    if (req.method === "DELETE") {
+      await clearAnalysisCache(year, country);
+      return Response.json({ success: true });
+    }
+
+    return new Response("Method Not Allowed", { status: 405 });
+  },
   // Country is passed as a query param: GET/POST /api/forecast-profile?country=us
   "/api/forecast-profile": async (req: Request) => {
     const url = new URL(req.url);
@@ -405,6 +480,27 @@ const routes: Record<string, any> = {
     if (req.method === "POST") {
       const body = (await req.json()) as Record<string, unknown>;
       await saveForecastProfile(country, body);
+      return Response.json({ success: true });
+    }
+    return new Response("Method Not Allowed", { status: 405 });
+  },
+  // GET /api/retirement-accounts — all years; POST ?year=N — save year; DELETE ?year=N — delete year
+  "/api/retirement-accounts": async (req: Request) => {
+    const url = new URL(req.url);
+    const yearParam = url.searchParams.get("year");
+    if (req.method === "GET") {
+      const all = await getAllRetirementAccounts();
+      return Response.json(all);
+    }
+    if (req.method === "POST") {
+      if (!yearParam) return Response.json({ error: "Missing year" }, { status: 400 });
+      const body = (await req.json()) as unknown[];
+      await saveRetirementAccounts(Number(yearParam), body as never);
+      return Response.json({ success: true });
+    }
+    if (req.method === "DELETE") {
+      if (!yearParam) return Response.json({ error: "Missing year" }, { status: 400 });
+      await deleteRetirementAccounts(Number(yearParam));
       return Response.json({ success: true });
     }
     return new Response("Method Not Allowed", { status: 405 });

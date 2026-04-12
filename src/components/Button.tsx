@@ -48,7 +48,7 @@ export function Button({
   return (
     <BaseButton
       className={cn(
-        "font-medium select-none",
+        "cursor-pointer font-medium select-none",
         "rounded-lg outline-none",
         "focus-visible:ring-2 focus-visible:ring-(--color-text-muted) focus-visible:ring-offset-2 focus-visible:ring-offset-(--color-bg)",
         "disabled:cursor-not-allowed disabled:opacity-50",

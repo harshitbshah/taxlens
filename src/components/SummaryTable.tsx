@@ -2,6 +2,8 @@ import { type ColumnDef, createColumnHelper } from "@tanstack/react-table";
 import { useMemo } from "react";
 
 import { formatCurrency, formatPercent } from "../lib/format";
+import type { AllRetirementAccounts } from "../lib/retirement-accounts-schema";
+import { netGainLoss } from "../lib/retirement-accounts-schema";
 import type { TaxReturn } from "../lib/schema";
 import { getTotalTax } from "../lib/tax-calculations";
 import { ChangeCell } from "./ChangeCell";
@@ -9,6 +11,7 @@ import { type ColumnMeta, Table } from "./Table";
 
 interface Props {
   returns: Record<number, TaxReturn>;
+  retirementAccounts?: AllRetirementAccounts;
 }
 
 interface SummaryRow {
@@ -21,7 +24,10 @@ interface SummaryRow {
   showChange?: boolean;
 }
 
-function collectRows(returns: Record<number, TaxReturn>): SummaryRow[] {
+function collectRows(
+  returns: Record<number, TaxReturn>,
+  retirementAccounts?: AllRetirementAccounts,
+): SummaryRow[] {
   const rows: SummaryRow[] = [];
   const allReturns = Object.values(returns);
   const years = Object.keys(returns).map(Number);
@@ -261,6 +267,49 @@ function collectRows(returns: Record<number, TaxReturn>): SummaryRow[] {
     invertPolarity: true,
   });
 
+  // Tax-Advantaged Accounts
+  if (retirementAccounts) {
+    const allAccountNames = new Set<string>();
+    for (const yearAccounts of Object.values(retirementAccounts)) {
+      for (const account of yearAccounts) {
+        allAccountNames.add(account.name);
+      }
+    }
+
+    if (allAccountNames.size > 0) {
+      addHeader("Tax-Advantaged Accounts");
+      for (const name of allAccountNames) {
+        const values: Record<number, number | undefined> = {};
+        for (const year of years) {
+          const yearAccounts = retirementAccounts[year] ?? [];
+          const match = yearAccounts.find((a) => a.name === name);
+          if (match) values[year] = netGainLoss(match);
+        }
+        rows.push({
+          id: `retirement-${name}`,
+          category: "Tax-Advantaged Accounts",
+          label: name,
+          values,
+          showChange: true,
+        });
+      }
+      const totalValues: Record<number, number | undefined> = {};
+      for (const year of years) {
+        const yearAccounts = retirementAccounts[year];
+        if (yearAccounts && yearAccounts.length > 0) {
+          totalValues[year] = yearAccounts.reduce((sum, a) => sum + netGainLoss(a), 0);
+        }
+      }
+      rows.push({
+        id: "retirement-total",
+        category: "Tax-Advantaged Accounts",
+        label: "Total net",
+        values: totalValues,
+        showChange: true,
+      });
+    }
+  }
+
   return rows;
 }
 
@@ -272,12 +321,15 @@ function formatValue(value: number | undefined, isRate: boolean): string {
 
 const columnHelper = createColumnHelper<SummaryRow>();
 
-export function SummaryTable({ returns }: Props) {
+export function SummaryTable({ returns, retirementAccounts }: Props) {
   const years = Object.keys(returns)
     .map(Number)
     .sort((a, b) => a - b); // Oldest first
 
-  const rows = useMemo(() => collectRows(returns), [returns]);
+  const rows = useMemo(
+    () => collectRows(returns, retirementAccounts),
+    [returns, retirementAccounts],
+  );
 
   const columns = useMemo(() => {
     // eslint-disable-next-line @typescript-eslint/no-explicit-any

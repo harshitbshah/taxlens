@@ -40,6 +40,8 @@ report.[0-9]_.[0-9]_.[0-9]_.[0-9]_.json
 .insights-cache.json
 .forecast-cache.json
 .forecast-profile.json
+.retirement-accounts.json
+.analysis-cache.json
 .api-key
 
 # Claude Code local settings

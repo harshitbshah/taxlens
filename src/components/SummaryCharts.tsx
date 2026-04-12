@@ -13,11 +13,14 @@ import {
 } from "recharts";
 
 import { formatCompact, formatCurrency } from "../lib/format";
+import type { AllRetirementAccounts } from "../lib/retirement-accounts-schema";
+import { netGainLoss } from "../lib/retirement-accounts-schema";
 import type { TaxReturn } from "../lib/schema";
 import { getNetIncome, getTotalTax } from "../lib/tax-calculations";
 
 interface Props {
   returns: Record<number, TaxReturn>;
+  retirementAccounts?: AllRetirementAccounts;
 }
 
 const COLORS = {
@@ -45,7 +48,86 @@ const tooltipStyle: React.CSSProperties = {
   padding: "8px 12px",
 };
 
-export function SummaryCharts({ returns }: Props) {
+interface GainLossBarChartProps {
+  title: string;
+  data: Array<{ year: string; value: number }>;
+  positiveLabel: string;
+  negativeLabel?: string;
+  footerText?: string;
+  showLegend?: boolean;
+}
+
+function GainLossBarChart({
+  title,
+  data,
+  positiveLabel,
+  negativeLabel,
+  footerText,
+  showLegend = false,
+}: GainLossBarChartProps) {
+  return (
+    <ChartCard title={title}>
+      <ResponsiveContainer width="100%" height={180}>
+        <BarChart data={data} barCategoryGap="40%">
+          <CartesianGrid vertical={false} stroke="var(--color-border)" strokeDasharray="3 3" />
+          <XAxis
+            dataKey="year"
+            tick={{ fill: "var(--color-text-muted)", fontSize: 12 }}
+            axisLine={false}
+            tickLine={false}
+          />
+          <YAxis
+            tickFormatter={formatCompact}
+            tick={{ fill: "var(--color-text-muted)", fontSize: 11 }}
+            axisLine={false}
+            tickLine={false}
+            width={50}
+          />
+          <ReferenceLine y={0} stroke="var(--color-border-opaque)" strokeWidth={1} />
+          <Tooltip
+            contentStyle={tooltipStyle}
+            formatter={(v) => {
+              const n = Number(v);
+              return [
+                formatCurrency(n, true),
+                n >= 0 ? positiveLabel : (negativeLabel ?? positiveLabel),
+              ];
+            }}
+            cursor={{ fill: "var(--color-bg-muted)" }}
+          />
+          <Bar
+            dataKey="value"
+            radius={[4, 4, 0, 0]}
+            fill={COLORS.net}
+            isAnimationActive={false}
+            activeBar={{ fillOpacity: 0.8 }}
+          >
+            {data.map((entry) => (
+              <Cell key={entry.year} fill={entry.value >= 0 ? COLORS.net : COLORS.taxes} />
+            ))}
+          </Bar>
+        </BarChart>
+      </ResponsiveContainer>
+      {showLegend && (
+        <div className="mt-3 flex gap-5">
+          <div className="flex items-center gap-1.5">
+            <div className="h-2 w-2 rounded-full" style={{ background: COLORS.net }} />
+            <span className="text-xs text-(--color-text-muted)">{positiveLabel}</span>
+          </div>
+          {negativeLabel && (
+            <div className="flex items-center gap-1.5">
+              <div className="h-2 w-2 rounded-full" style={{ background: COLORS.taxes }} />
+              <span className="text-xs text-(--color-text-muted)">{negativeLabel}</span>
+            </div>
+          )}
+        </div>
+      )}
+      {footerText && <p className="mt-2 text-xs text-(--color-text-muted)">{footerText}</p>}
+    </ChartCard>
+  );
+}
+
+export function SummaryCharts({ returns, retirementAccounts }: Props) {
   const years = Object.keys(returns)
     .map(Number)
     .sort((a, b) => a - b);
@@ -81,13 +163,32 @@ export function SummaryCharts({ returns }: Props) {
     };
   });
 
-  const refundData = years.map((year) => {
-    const r = returns[year]!;
-    return {
-      year: String(year),
-      amount: r.summary.netPosition,
-    };
-  });
+  const refundData = years.map((year) => ({
+    year: String(year),
+    value: returns[year]!.summary.netPosition,
+  }));
+
+  const capGainsData = years.map((year) => ({
+    year: String(year),
+    value: returns[year]!.income.items.filter((item) => /capital gain/i.test(item.label)).reduce(
+      (sum, item) => sum + item.amount,
+      0,
+    ),
+  }));
+  const hasCapGains = capGainsData.some((d) => d.value !== 0);
+
+  const retirementData = retirementAccounts
+    ? years
+        .map((year) => {
+          const accounts = retirementAccounts[year];
+          if (!accounts || accounts.length === 0) return null;
+          return {
+            year: String(year),
+            value: accounts.reduce((sum, a) => sum + netGainLoss(a), 0),
+          };
+        })
+        .filter((d): d is { year: string; value: number } => d !== null)
+    : [];
 
   return (
     <div className="space-y-4 p-6">
@@ -130,7 +231,7 @@ export function SummaryCharts({ returns }: Props) {
               dataKey="Net"
               fill={COLORS.net}
               stackId={useStacked ? "a" : undefined}
-              radius={useStacked ? [4, 4, 0, 0] : [4, 4, 0, 0]}
+              radius={[4, 4, 0, 0]}
             />
           </BarChart>
         </ResponsiveContainer>
@@ -201,51 +302,34 @@ export function SummaryCharts({ returns }: Props) {
         </ChartCard>
 
         {/* Refund / Owed */}
-        <ChartCard title="Refund / Owed">
-          <ResponsiveContainer width="100%" height={180}>
-            <BarChart data={refundData} barCategoryGap="40%">
-              <CartesianGrid vertical={false} stroke="var(--color-border)" strokeDasharray="3 3" />
-              <XAxis
-                dataKey="year"
-                tick={{ fill: "var(--color-text-muted)", fontSize: 12 }}
-                axisLine={false}
-                tickLine={false}
-              />
-              <YAxis
-                tickFormatter={formatCompact}
-                tick={{ fill: "var(--color-text-muted)", fontSize: 11 }}
-                axisLine={false}
-                tickLine={false}
-                width={50}
-              />
-              <ReferenceLine y={0} stroke="var(--color-border-opaque)" strokeWidth={1} />
-              <Tooltip
-                contentStyle={tooltipStyle}
-                formatter={(value) => {
-                  const n = Number(value);
-                  return [formatCurrency(n, true), n >= 0 ? "Refund" : "Owed"];
-                }}
-                cursor={{ fill: "var(--color-bg-muted)" }}
-              />
-              <Bar dataKey="amount" radius={[4, 4, 0, 0]} fill={COLORS.net}>
-                {refundData.map((entry) => (
-                  <Cell key={entry.year} fill={entry.amount >= 0 ? COLORS.net : COLORS.taxes} />
-                ))}
-              </Bar>
-            </BarChart>
-          </ResponsiveContainer>
-          <div className="mt-3 flex gap-5">
-            <div className="flex items-center gap-1.5">
-              <div className="h-2 w-2 rounded-full" style={{ background: COLORS.net }} />
-              <span className="text-xs text-(--color-text-muted)">Refund</span>
-            </div>
-            <div className="flex items-center gap-1.5">
-              <div className="h-2 w-2 rounded-full" style={{ background: COLORS.taxes }} />
-              <span className="text-xs text-(--color-text-muted)">Owed</span>
-            </div>
-          </div>
-        </ChartCard>
+        <GainLossBarChart
+          title="Refund / Owed"
+          data={refundData}
+          positiveLabel="Refund"
+          negativeLabel="Owed"
+          showLegend
+        />
       </div>
+
+      {/* Capital Gains — full width, only shown when at least one year has data */}
+      {hasCapGains && (
+        <GainLossBarChart
+          title="Capital Gains (Schedule D)"
+          data={capGainsData}
+          positiveLabel="Gain"
+          negativeLabel="Loss"
+        />
+      )}
+
+      {/* Tax-Advantaged Account P&L — full width, only shown when data exists */}
+      {retirementData.length > 0 && (
+        <GainLossBarChart
+          title="Tax-Advantaged Account P&L"
+          data={retirementData}
+          positiveLabel="Net P&L"
+          footerText="Realized gains/losses not reported on tax returns"
+        />
+      )}
     </div>
   );
 }

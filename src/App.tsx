@@ -25,6 +25,10 @@ import {
   type SelectedView,
 } from "./lib/nav";
 import type {
+  AllRetirementAccounts,
+  RetirementAccountsYear,
+} from "./lib/retirement-accounts-schema";
+import type {
   FileProgress,
   FileWithId,
   IndianTaxReturn,
@@ -133,6 +137,7 @@ export function App() {
   });
   const [forecastStates, setForecastStates] = useState<Record<string, ForecastState>>({});
   const [forecastProfiles, setForecastProfiles] = useState<Record<string, ForecastProfile>>({});
+  const [retirementAccounts, setRetirementAccounts] = useState<AllRetirementAccounts>({});
   const [devDemoOverride, setDevDemoOverride] = useState<boolean | null>(getDevDemoOverride);
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [pendingFiles, setPendingFiles] = useState<File[]>([]);
@@ -200,6 +205,13 @@ export function App() {
         : [],
     [activePlugin, activeReturns],
   );
+
+  useEffect(() => {
+    fetch("/api/retirement-accounts")
+      .then((res) => (res.ok ? res.json() : {}))
+      .then((data: AllRetirementAccounts) => setRetirementAccounts(data))
+      .catch(() => {});
+  }, []);
 
   useEffect(() => {
     fetchInitialState()
@@ -322,6 +334,15 @@ export function App() {
       body: JSON.stringify(profile),
     });
     setForecastProfiles((prev) => ({ ...prev, [country]: profile }));
+  }
+
+  async function handleSaveRetirementAccounts(year: number, accounts: RetirementAccountsYear) {
+    await fetch(`/api/retirement-accounts?year=${year}`, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify(accounts),
+    });
+    setRetirementAccounts((prev) => ({ ...prev, [year]: accounts }));
   }
 
   useEffect(() => {
@@ -699,9 +720,13 @@ export function App() {
     const commonProps = {
       activeCountry: state.activeCountry,
       activeReturns,
-      usReturns: effectiveReturns,
       indiaReturns: effectiveIndiaReturns,
       selectedYear: selectedYearNum,
+    };
+
+    const usViewProps = {
+      retirementAccounts,
+      onSaveRetirementAccounts: handleSaveRetirementAccounts,
     };
 
     if (selectedPendingUpload) {
@@ -721,15 +746,15 @@ export function App() {
       );
     }
     if (state.selectedYear === "summary") {
-      return <MainPanel view="summary" {...commonProps} />;
+      return <MainPanel view="summary" {...commonProps} {...usViewProps} />;
     }
     if (typeof state.selectedYear === "number") {
       const yearLabel = activePlugin?.yearLabel(state.selectedYear) ?? String(state.selectedYear);
       if (activeReturns[state.selectedYear]) {
-        return <MainPanel view="receipt" title={yearLabel} {...commonProps} />;
+        return <MainPanel view="receipt" title={yearLabel} {...commonProps} {...usViewProps} />;
       }
     }
-    return <MainPanel view="summary" {...commonProps} />;
+    return <MainPanel view="summary" {...commonProps} {...usViewProps} />;
   }
 
   const showOnboarding =
