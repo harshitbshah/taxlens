@@ -1,13 +1,14 @@
 import { type ColumnDef, createColumnHelper } from "@tanstack/react-table";
-import { useMemo } from "react";
+import { useEffect, useMemo, useState } from "react";
 
+import { complianceTotal, type CountryCosts } from "../lib/filing-costs-schema";
 import { formatCurrency, formatPercent } from "../lib/format";
 import type { AllRetirementAccounts } from "../lib/retirement-accounts-schema";
 import { netGainLoss } from "../lib/retirement-accounts-schema";
 import type { TaxReturn } from "../lib/schema";
 import { getTotalTax } from "../lib/tax-calculations";
 import { ChangeCell } from "./ChangeCell";
-import { ComplianceCostsSection } from "./ComplianceCostsSection";
+import { EditDialog } from "./ComplianceCostsSection";
 import { type ColumnMeta, Table } from "./Table";
 
 interface Props {
@@ -20,6 +21,8 @@ interface SummaryRow {
   category: string;
   label: string;
   isHeader?: boolean;
+  isCompliance?: boolean;
+  complianceMeta?: Record<number, { method?: string }>;
   values: Record<number, number | undefined>;
   invertPolarity?: boolean;
   showChange?: boolean;
@@ -28,6 +31,7 @@ interface SummaryRow {
 function collectRows(
   returns: Record<number, TaxReturn>,
   retirementAccounts?: AllRetirementAccounts,
+  costs?: Record<number, CountryCosts>,
 ): SummaryRow[] {
   const rows: SummaryRow[] = [];
   const allReturns = Object.values(returns);
@@ -311,6 +315,26 @@ function collectRows(
     }
   }
 
+  // Cost of Compliance
+  addHeader("Cost of Compliance");
+  const filingValues: Record<number, number | undefined> = {};
+  const complianceMeta: Record<number, { method?: string }> = {};
+  for (const year of years) {
+    const c = costs?.[year];
+    if (c?.filing !== undefined) {
+      filingValues[year] = complianceTotal(c);
+      if (c.filing.method) complianceMeta[year] = { method: c.filing.method };
+    }
+  }
+  rows.push({
+    id: "compliance-filing",
+    category: "Cost of Compliance",
+    label: "Filing cost",
+    isCompliance: true,
+    values: filingValues,
+    complianceMeta,
+  });
+
   return rows;
 }
 
@@ -323,13 +347,23 @@ function formatValue(value: number | undefined, isRate: boolean): string {
 const columnHelper = createColumnHelper<SummaryRow>();
 
 export function SummaryTable({ returns, retirementAccounts }: Props) {
+  const [costs, setCosts] = useState<Record<number, CountryCosts>>({});
+  const [editingYear, setEditingYear] = useState<number | null>(null);
+
+  useEffect(() => {
+    fetch("/api/filing-costs?country=us")
+      .then((res) => (res.ok ? res.json() : {}))
+      .then((data) => setCosts(data as Record<number, CountryCosts>))
+      .catch(() => {});
+  }, []);
+
   const years = Object.keys(returns)
     .map(Number)
     .sort((a, b) => a - b); // Oldest first
 
   const rows = useMemo(
-    () => collectRows(returns, retirementAccounts),
-    [returns, retirementAccounts],
+    () => collectRows(returns, retirementAccounts, costs),
+    [returns, retirementAccounts, costs],
   );
 
   const columns = useMemo(() => {
@@ -377,6 +411,24 @@ export function SummaryTable({ returns, retirementAccounts }: Props) {
               return null;
             }
 
+            if (row.isCompliance) {
+              const method = row.complianceMeta?.[year]?.method;
+              const amt = info.getValue() as number | undefined;
+              return (
+                <button
+                  onClick={() => setEditingYear(year)}
+                  className="group flex w-full cursor-pointer flex-col items-end"
+                >
+                  <span
+                    className={`slashed-zero tabular-nums ${amt !== undefined ? "text-(--color-text)" : "text-(--color-text-tertiary) group-hover:text-(--color-text-muted)"}`}
+                  >
+                    {amt !== undefined ? formatCurrency(amt) : "—"}
+                  </span>
+                  {method && <span className="text-xs text-(--color-text-muted)">{method}</span>}
+                </button>
+              );
+            }
+
             const value = info.getValue() as number | undefined;
             const isRate = row.category === "Rates";
             const prevValue = prevYear !== undefined ? row.values[prevYear] : undefined;
@@ -421,7 +473,7 @@ export function SummaryTable({ returns, retirementAccounts }: Props) {
     });
 
     return cols;
-  }, [years]);
+  }, [years, setEditingYear]);
 
   const getRowClassName = (row: SummaryRow) => {
     if (row.isHeader && row.category !== "Monthly Breakdown") {
@@ -433,17 +485,29 @@ export function SummaryTable({ returns, retirementAccounts }: Props) {
   const isRowHoverDisabled = (row: SummaryRow) => row.isHeader === true;
 
   return (
-    <div className="flex h-full w-full flex-col text-sm">
-      <div className="min-h-0 flex-1 overflow-hidden">
-        <Table
-          data={rows}
-          columns={columns}
-          storageKey="summary-table"
-          getRowClassName={getRowClassName}
-          isRowHoverDisabled={isRowHoverDisabled}
+    <div className="h-full w-full text-sm">
+      <Table
+        data={rows}
+        columns={columns}
+        storageKey="summary-table"
+        getRowClassName={getRowClassName}
+        isRowHoverDisabled={isRowHoverDisabled}
+      />
+      {editingYear !== null && (
+        <EditDialog
+          open
+          year={editingYear}
+          yearLabel={String(editingYear)}
+          country="us"
+          existing={costs[editingYear] ?? null}
+          currency="$"
+          onClose={() => setEditingYear(null)}
+          onSaved={(newCosts) => {
+            setCosts((prev) => ({ ...prev, [editingYear]: newCosts }));
+            setEditingYear(null);
+          }}
         />
-      </div>
-      <ComplianceCostsSection country="us" years={years} currency="$" />
+      )}
     </div>
   );
 }

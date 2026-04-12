@@ -13,7 +13,7 @@ interface Props {
 
 // ── Edit dialog ───────────────────────────────────────────────────────────────
 
-interface EditDialogProps {
+export interface EditDialogProps {
   open: boolean;
   year: number;
   yearLabel: string;
@@ -24,7 +24,7 @@ interface EditDialogProps {
   onSaved: (costs: CountryCosts) => void;
 }
 
-function EditDialog({
+export function EditDialog({
   open,
   year,
   yearLabel,
