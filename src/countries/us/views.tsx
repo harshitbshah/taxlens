@@ -1,5 +1,6 @@
 import { BracketBar } from "../../components/BracketBar";
 import { ReceiptView } from "../../components/ReceiptView";
+import { StatsHeader } from "../../components/StatsHeader";
 import { SummaryCharts } from "../../components/SummaryCharts";
 import { SummaryReceiptView } from "../../components/SummaryReceiptView";
 import { SummaryTable } from "../../components/SummaryTable";
@@ -25,6 +26,10 @@ export const usClientPlugin: CountryClientPlugin = {
   summaryLabel: "All time",
 
   components: {
+    StatsHeader: StatsHeader as React.ComponentType<{
+      returns: Record<number, unknown>;
+      selectedYear: "summary" | number;
+    }>,
     YearReceipt: ReceiptView as React.ComponentType<{ data: unknown }>,
     YearCharts: YearCharts as React.ComponentType<{ data: unknown }>,
     SummaryView: SummaryTable as React.ComponentType<{ returns: Record<number, unknown> }>,

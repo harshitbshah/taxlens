@@ -11,11 +11,9 @@ import type {
 import type { IndianTaxReturn, PendingUpload, TaxReturn } from "../lib/schema";
 import { AnalysisPanel } from "./AnalysisPanel";
 import { ForecastView } from "./ForecastView";
-import { IndiaStatsHeader } from "./IndiaStatsHeader";
 import { InsightsPanel } from "./InsightsPanel";
 import { LoadingView } from "./LoadingView";
 import { RetirementAccountsSection } from "./RetirementAccountsSection";
-import { StatsHeader } from "./StatsHeader";
 import { SummaryCharts } from "./SummaryCharts";
 import { SummaryTable } from "./SummaryTable";
 
@@ -76,9 +74,8 @@ export function MainPanel(props: Props) {
         />
       ) : props.view === "summary" ? (
         <div className="flex min-h-0 flex-1 flex-col">
-          {isUs && <StatsHeader returns={usReturns} selectedYear="summary" />}
-          {!isUs && props.activeCountry === "india" && (
-            <IndiaStatsHeader returns={props.indiaReturns} selectedYear="summary" />
+          {plugin?.components.StatsHeader && (
+            <plugin.components.StatsHeader returns={props.activeReturns} selectedYear="summary" />
           )}
           <div className="flex shrink-0 items-center gap-1 border-b border-(--color-border) px-4 py-2">
             {(
@@ -128,10 +125,9 @@ export function MainPanel(props: Props) {
         </div>
       ) : props.view === "receipt" ? (
         <div className="flex min-h-0 flex-1 flex-col">
-          {isUs && <StatsHeader returns={usReturns} selectedYear={props.selectedYear as number} />}
-          {!isUs && props.activeCountry === "india" && (
-            <IndiaStatsHeader
-              returns={props.indiaReturns}
+          {plugin?.components.StatsHeader && (
+            <plugin.components.StatsHeader
+              returns={props.activeReturns}
               selectedYear={props.selectedYear as number}
             />
           )}

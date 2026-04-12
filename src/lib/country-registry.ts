@@ -86,6 +86,11 @@ export interface CountryClientPlugin {
   // All typed as `unknown` in the interface so the registry is generic.
   // Each concrete plugin casts its typed components when registering.
   components: {
+    // Stats bar shown at the top of summary and individual-year views (optional).
+    StatsHeader?: React.ComponentType<{
+      returns: Record<number, unknown>;
+      selectedYear: "summary" | number;
+    }>;
     // Single-year receipt / breakdown view.
     YearReceipt: React.ComponentType<{ data: unknown }>;
     // Single-year charts tab.

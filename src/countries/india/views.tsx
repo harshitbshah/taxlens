@@ -1,5 +1,6 @@
 import { IndiaReceiptView } from "../../components/IndiaReceiptView";
 import { IndiaRegimeCard } from "../../components/IndiaRegimeCard";
+import { IndiaStatsHeader } from "../../components/IndiaStatsHeader";
 import { IndiaSummaryCharts } from "../../components/IndiaSummaryCharts";
 import { IndiaSummaryView } from "../../components/IndiaSummaryView";
 import { IndiaYearCharts } from "../../components/IndiaYearCharts";
@@ -24,6 +25,10 @@ export const indiaClientPlugin: CountryClientPlugin = {
   summaryLabel: "All years",
 
   components: {
+    StatsHeader: IndiaStatsHeader as React.ComponentType<{
+      returns: Record<number, unknown>;
+      selectedYear: "summary" | number;
+    }>,
     YearReceipt: IndiaReceiptView as React.ComponentType<{ data: unknown }>,
     YearCharts: IndiaYearCharts as React.ComponentType<{ data: unknown }>,
     SummaryView: IndiaSummaryView as React.ComponentType<{ returns: Record<number, unknown> }>,
