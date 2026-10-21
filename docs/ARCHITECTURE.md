@@ -12,7 +12,7 @@ TaxLens (forked from brianlovin/tax-ui) is a single-process Bun application — 
 Browser (React 19)
     │
     ▼
-Bun server (src/index.ts)   idleTimeout: 120s (Claude calls take 30–90s)
+Bun server (src/server.ts createServer(), started by src/index.ts)   idleTimeout: 120s (Claude calls take 30–90s)
     ├── GET  /                           → serves React SPA
     ├── GET  /api/config                 → hasKey, isDemo, isDev
     ├── POST /api/config/key             → validate + save API key
@@ -72,7 +72,7 @@ src/lib/country-registry.ts
                           components { YearReceipt, YearCharts, SummaryView,
                           SummaryCharts, SummaryReceipt? }, forecast?.ExtensionCard
 
-src/countries/index.ts      → SERVER_REGISTRY (imported by src/index.ts only)
+src/countries/index.ts      → SERVER_REGISTRY (imported by src/server.ts only)
 src/countries/views.ts      → CLIENT_REGISTRY (imported by React components only)
 
 src/countries/us/index.ts   → usServerPlugin
@@ -120,7 +120,7 @@ User message
 ```
 "Generate Forecast" click (or "Regenerate")
   → App.tsx: handleGenerateForecast() — POST /api/forecast
-  → src/index.ts: gathers returns from all plugins via getCountryReturns; passes activePlugins to generateForecast
+  → src/server.ts: gathers returns from all plugins via getCountryReturns; passes activePlugins to generateForecast
   → forecaster.ts: buildForecastPrompt(allReturns, activePlugins)
       loops plugins: per-country condensed year summaries via plugin.buildYearSummary
       + plugin.constants?.get(projectedYear) injected as verified tax figures per country
@@ -245,7 +245,8 @@ Test files live alongside source. Run: `bun test`. Every run is isolated from re
 ```
 Unit tests (159 passing):
   src/App.test.ts                    nav/selection logic
-  src/index.test.ts                  server config regressions (idleTimeout, route format)
+  src/server.test.ts                 server config regressions (idleTimeout, route format) — source-level
+  tests/server.test.ts               HM-3+: HTTP tests against a real createServer() on port 0
   src/lib/nav.test.ts                buildUsNavItems, buildIndiaNavItems, getDefault*, parseSelectedId (24)
   src/lib/format.test.ts             formatINRCompact, formatCurrency, formatPercent
   src/lib/tax-calculations.test.ts   getTotalTax, getNetIncome, computeBracketTax (5 new)
@@ -302,7 +303,7 @@ Indian ITRs with full capital gains schedules can hit 429 rate limits on Haiku. 
 ~50 lines per year, permanent source of truth, zero network dependency, auditable inline. At 20 years it's ~1,000 lines — well within the range of a readable config file. The alternative (fetching from an IRS API or Tax Foundation) introduces a dependency, a failure mode, and the risk of pulling pre-amendment data (Tax Foundation's 2025 figures were pre-OBBBA and had wrong bracket ceilings). Always source from `irs.gov/filing/federal-income-tax-rates-and-brackets` directly.
 
 **Why split CountryServerPlugin and CountryClientPlugin instead of one plugin interface?**
-The server plugin imports Bun, Anthropic SDK, and Zod schemas — none of which belong in the browser bundle. The client plugin imports React and JSX components — which should never run on the server. Splitting the interface into two (registered in `src/countries/index.ts` and `src/countries/views.ts` respectively) enforces this boundary at the module level. `forecaster.ts` accepts `CountryServerPlugin[]` as arguments from `src/index.ts` rather than importing `SERVER_REGISTRY` itself, because `forecaster.ts` is also imported by `App.tsx` (for the `ForecastResponse` type); a direct registry import would pull server-only code into the browser bundle.
+The server plugin imports Bun, Anthropic SDK, and Zod schemas — none of which belong in the browser bundle. The client plugin imports React and JSX components — which should never run on the server. Splitting the interface into two (registered in `src/countries/index.ts` and `src/countries/views.ts` respectively) enforces this boundary at the module level. `forecaster.ts` accepts `CountryServerPlugin[]` as arguments from `src/server.ts` rather than importing `SERVER_REGISTRY` itself, because `forecaster.ts` is also imported by `App.tsx` (for the `ForecastResponse` type); a direct registry import would pull server-only code into the browser bundle.
 
 **Why a per-country module directory for constants instead of a single file?**
 A single `tax-constants.ts` with US-only types would need to absorb India (old/new regimes, surcharge, cess, FY keys) and Canada (federal + provincial, RRSP/TFSA) with incompatible structures. Each country gets its own module with its own type, data record, getter, and prompt formatter. No shared supertype is forced. `index.ts` re-exports all registered countries. See `docs/ADDING_COUNTRY_CONSTANTS.md` for onboarding a new country.

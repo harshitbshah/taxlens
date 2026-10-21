@@ -15,11 +15,13 @@ Spec: [`docs/HOSTED_MODE_SPEC.md`](docs/HOSTED_MODE_SPEC.md)
 ### Added
 - `src/lib/data-dir.ts` — `getDataDir()` / `dataPath()`, the single place the data directory is resolved (HM-1).
 - Test-run isolation: `bun test` now preloads `tests/setup/isolate-data-dir.ts`, forcing all storage into a temp dir (HM-2).
+- `src/server.ts` `createServer()` factory and `tests/helpers/test-server.ts`, enabling real HTTP route tests (HM-3).
 - `docs/HOSTED_MODE_SPEC.md` — requirements HM-1 … HM-14 for running TaxLens on a self-hosted server behind a username/password.
 - `CHANGELOG.md` (this file).
 
 ### Changed
 - **Breaking (local data location):** `.filing-costs.json` now lives in the data dir (`TAX_UI_DATA_DIR`, default `cwd`) instead of `$HOME`. Copy `~/.filing-costs.json` into the project root once (HM-1).
+- `src/index.ts` is now a thin entry point; routes and `Bun.serve()` config moved to `src/server.ts` (HM-3). No behaviour change.
 - All storage modules resolve their file path on every call instead of at import time (HM-1).
 
 ### Fixed

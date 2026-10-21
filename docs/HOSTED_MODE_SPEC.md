@@ -102,7 +102,11 @@ AC:
 4. Manual check (documented in PROGRESS): `~/.filing-costs.json` and the repo's `.*.json`
    mtimes are unchanged after a full `bun test`.
 
-### HM-3 — Server factory
+### HM-3 — Server factory ✅
+
+> Implemented 2026-10-21. `src/server.ts` (`createServer`), `src/index.ts` thin entry, `tests/helpers/test-server.ts`, HTTP tests in `tests/server.test.ts`. Source-level checks moved `src/index.test.ts` → `src/server.test.ts`.
+> **AC change:** the planned "HTTP test proving `idleTimeout` is applied" was dropped — observing it needs a request idle for >10s. The source-level check stays. In its place, an HTTP regression test proves dev-mode `GET /api/forecast` returns JSON rather than being swallowed by the `/*` SPA wildcard (the bug the source-level forecast check guards).
+> **Options shape:** `{ port, hostname?, production?, staticDir? }` for now; HM-4 replaces the loose flags with the validated `ServerEnv`.
 
 **Why:** Needed so HM-5–HM-9 can be tested with real HTTP requests instead of regex on source.
 

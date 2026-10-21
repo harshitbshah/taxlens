@@ -41,7 +41,9 @@ Tax return PDF parser using Claude API and Bun.
 - To add a new country: see `docs/ADDING_COUNTRY.md`
 
 ### Server
-- `src/index.ts` — Bun.serve() routes. Generic `/api/:country/*` routes serve all registered countries. US legacy routes (`/api/returns`, `/api/parse`, `/api/extract-year`) kept for backward compat and first-time key setup.
+- `src/server.ts` — `createServer(options)`: route table + `Bun.serve()` config (HM-3). Generic `/api/:country/*` routes serve all registered countries. US legacy routes (`/api/returns`, `/api/parse`, `/api/extract-year`) kept for backward compat and first-time key setup.
+- `src/index.ts` — thin entry point: parses `--port` and env, calls `createServer()`. Keep logic out of it so it stays testable via `createServer`.
+- `tests/helpers/test-server.ts` — `startTestServer(options)` starts a real server on port 0 with its own temp data dir; use it for route/API tests (`tests/*.test.ts`) instead of grepping source.
 - `src/lib/storage.ts` — US returns + API key persistence; includes `migrate()` for old stored data (backfills missing array fields)
 - `src/lib/india-storage.ts` — still used by `scripts/import-india.ts` CLI; app routes use generic storage now
 
