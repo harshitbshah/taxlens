@@ -137,3 +137,41 @@ describe("HM-5: production static handler", () => {
     expect((await fetch(`${url}/api/does-not-exist`)).status).toBe(404);
   });
 });
+
+describe("HM-8: cross-site writes are rejected on every /api route", () => {
+  const SEEDED = '{"2020":{"seeded":true}}';
+
+  async function seededServer() {
+    server = await startTestServer();
+    await writeFile(path.join(server.dataDir, ".tax-returns.json"), SEEDED);
+    return server;
+  }
+
+  test("cross-site POST /api/clear-data → 403 and data is untouched", async () => {
+    const { url, dataDir } = await seededServer();
+    const res = await fetch(`${url}/api/clear-data`, {
+      method: "POST",
+      headers: { "sec-fetch-site": "cross-site", origin: "https://evil.example" },
+    });
+    expect(res.status).toBe(403);
+    expect(await res.json()).toEqual({ error: "Cross-site request blocked" });
+    expect(await Bun.file(path.join(dataDir, ".tax-returns.json")).text()).toBe(SEEDED);
+  });
+
+  test("control: the same POST without browser headers still clears data (local mode)", async () => {
+    const { url, dataDir } = await seededServer();
+    const res = await fetch(`${url}/api/clear-data`, { method: "POST" });
+    expect(res.status).toBe(200);
+    expect(await Bun.file(path.join(dataDir, ".tax-returns.json")).text()).toBe("{}");
+  });
+
+  test("cross-site POST to a function-style route (/api/forecast-profile) → 403", async () => {
+    const { url } = await seededServer();
+    const res = await fetch(`${url}/api/forecast-profile?country=us`, {
+      method: "POST",
+      headers: { "sec-fetch-site": "cross-site", "content-type": "application/json" },
+      body: "{}",
+    });
+    expect(res.status).toBe(403);
+  });
+});

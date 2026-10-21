@@ -20,6 +20,7 @@ import { generateForecast } from "./lib/forecaster";
 import { generateInsights } from "./lib/insights";
 import { clearInsightsCache, getInsightsCache, saveInsightsCache } from "./lib/insights-cache";
 import { extractYearFromPdf, parseTaxReturn } from "./lib/parser";
+import { isCrossSiteWrite } from "./lib/request-guard";
 import {
   deleteRetirementAccounts,
   getAllRetirementAccounts,
@@ -619,6 +620,36 @@ const routes: Record<string, any> = {
   },
 };
 
+type RouteHandler = (req: Request) => Response | Promise<Response>;
+
+function blockCrossSite(handler: RouteHandler): RouteHandler {
+  return (req) =>
+    isCrossSiteWrite(req)
+      ? Response.json({ error: "Cross-site request blocked" }, { status: 403 })
+      : handler(req);
+}
+
+// HM-8: wrap every /api handler — both single-function routes and { GET, POST, … } objects —
+// so a new route can't forget the guard. Non-API entries (the SPA HTML import) pass through.
+// eslint-disable-next-line @typescript-eslint/no-explicit-any
+function guardApiRoutes(table: Record<string, any>): Record<string, any> {
+  return Object.fromEntries(
+    Object.entries(table).map(([route, value]) => {
+      if (!route.startsWith("/api/")) return [route, value];
+      if (typeof value === "function") return [route, blockCrossSite(value)];
+      return [
+        route,
+        Object.fromEntries(
+          Object.entries(value).map(([method, handler]) => [
+            method,
+            blockCrossSite(handler as RouteHandler),
+          ]),
+        ),
+      ];
+    }),
+  );
+}
+
 function decodeStaticPath(pathname: string): string | null {
   try {
     return decodeURIComponent(pathname);
@@ -640,8 +671,9 @@ export function createServer({
   production = false,
   staticDir = import.meta.dir,
 }: CreateServerOptions) {
-  // Copy rather than mutate the shared table: tests start several servers per process.
-  const serverRoutes = production ? routes : { ...routes, "/*": index };
+  // Build fresh tables rather than mutate the shared one: tests start several servers per process.
+  const apiRoutes = guardApiRoutes(routes);
+  const serverRoutes = production ? apiRoutes : { ...apiRoutes, "/*": index };
 
   return serve({
     port,

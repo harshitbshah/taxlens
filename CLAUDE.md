@@ -187,6 +187,8 @@ bun run scripts/validate-returns.ts
 Endpoints with no data: `GET /api/health` → `{ ok: true }` (HM-9) — keep it that way, it is unauthenticated inside the container network.
 | `DEMO_MODE` | — | `true` serves sample data; forbidden in hosted mode |
 
+Cross-site guard (HM-8): every `/api/*` route is wrapped by `guardApiRoutes()` in `src/server.ts` — non-GET requests flagged cross-site by `Sec-Fetch-Site` or a mismatched `Origin` get 403. Add routes to the `routes` table and they are guarded automatically; don't register API routes elsewhere.
+
 Production static handler rules (HM-5): dotfile path segments always 404; unknown non-`/api/` paths return `index.html`; startup refuses a data dir that is or sits inside the static dir.
 
 All config parsing goes through `resolveServerEnv(env, defaults)` — add new vars there, with tests, not as ad-hoc `process.env` reads.

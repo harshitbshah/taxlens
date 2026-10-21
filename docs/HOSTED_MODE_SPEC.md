@@ -196,7 +196,11 @@ AC (HTTP):
 1. Hosted: each route → 403, and the data files / `.env` in the temp data dir are unchanged.
 2. Local: `POST /api/clear-data` still clears data (existing behaviour preserved).
 
-### HM-8 — Reject cross-site writes (all modes)
+### HM-8 — Reject cross-site writes (all modes) ✅
+
+> Implemented 2026-10-21. `src/lib/request-guard.ts` (`isCrossSiteWrite`, 16 unit tests) applied to every `/api/*` route by `guardApiRoutes()` in `src/server.ts` (wraps both function and method-object routes, so new routes are guarded automatically). HTTP tests in `tests/server.test.ts`.
+> **Confirmed (red):** before the fix, a cross-site form POST to a local `127.0.0.1:3005` server wiped all data via `/api/clear-data`.
+> Origin is compared as `host:port` against the `Host` header — the reverse proxy must preserve `Host` (Caddy's default; noted for HM-11).
 
 **Why:** Browsers attach cached Basic-Auth credentials to cross-site form posts. This also
 protects local dev from drive-by requests to `localhost:3005`.

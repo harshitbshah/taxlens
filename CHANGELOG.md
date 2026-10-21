@@ -30,6 +30,7 @@ Spec: [`docs/HOSTED_MODE_SPEC.md`](docs/HOSTED_MODE_SPEC.md)
 - All storage modules resolve their file path on every call instead of at import time (HM-1).
 
 ### Fixed
+- **Security:** any website open in your browser could change or wipe TaxLens data (e.g. a hidden form POST to `/api/clear-data` on `localhost`). State-changing `/api/*` requests marked cross-site by the browser (`Sec-Fetch-Site`, or an `Origin` that doesn't match `Host`) now get 403 (HM-8).
 - **Security:** the production static handler served dotfiles, so `/.env` (API key) and `/.tax-returns.json` were downloadable whenever they sat in the static dir. Dotfile path segments are now always 404, and any production start refuses a data dir inside the static dir (HM-5).
 - `bun test` no longer reads or writes real data: the filing-costs tests had been modifying `~/.filing-costs.json`, and `forecast-cache.test.ts` had been deleting the real `.forecast-cache.json` (HM-1, HM-2).
 - `bun test` no longer sees the real `ANTHROPIC_API_KEY` from `.env`; the test preload strips it so no test can make billable API calls (HM-2).
