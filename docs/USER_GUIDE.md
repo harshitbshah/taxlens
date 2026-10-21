@@ -177,8 +177,7 @@ More detail: [`HOSTING.md` → Troubleshooting](HOSTING.md#troubleshooting).
 - **What isn't protected yet:** Caddy doesn't limit login attempts. Your password is under 16
   characters, so adding **fail2ban** (blocks an address after repeated wrong passwords) is the
   recommended next step — about 20 minutes. Ask Claude to "set up fail2ban for Caddy".
-- **The code is public on GitHub** (it's a fork). Your tax data has never been in it, but the
-  README screenshots show real income figures — cleaning that up is on the to-do list.
+- **The code is public on GitHub** (it's a fork). Your tax data files have never been in it.
 
 ---
 
@@ -196,5 +195,5 @@ More detail: [`HOSTING.md` → Troubleshooting](HOSTING.md#troubleshooting).
 - [ ] Set up fail2ban for Caddy (§11)
 - [ ] Regenerate forecasts; re-enter 2025 India filing costs (§5)
 - [ ] Rehearse a restore from a Drive snapshot once
-- [ ] Decide on the public repo: make private and replace screenshots
+- [ ] Decide on the public repo (see private notes)
 - [ ] Round 2: bring tax-planner (filing notes, open items, document links) into TaxLens

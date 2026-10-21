@@ -40,7 +40,7 @@ Spec: `docs/HOSTED_MODE_SPEC.md` (spec-first, approved before code). Runbook: `d
 - Restore drill from a Drive snapshot not yet rehearsed (documented in HOSTING.md).
 - Forecast cache was wiped by old test runs — regenerate forecasts (US, India) in the hosted app.
 - 2025 India filing costs need re-entry (removed after the test-data incident).
-- Repo is public and README screenshots contain real income figures (public fork exists) — deferred cleanup.
+- Public-repo hygiene review deferred (tracked privately).
 - Judgement-call smells left as-is (spec §12).
 - VM disk ~91% used (`~/.openclaw` ~17 GB).
 
