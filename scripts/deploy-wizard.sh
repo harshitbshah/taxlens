@@ -218,7 +218,9 @@ banner "TaxLens hosted deploy — your part"
 stage "Login for $TAXLENS_DOMAIN"
 say "Caddy will ask for this username and password before anything reaches TaxLens."
 say "The password is hashed here on your laptop (bcrypt); only the hash goes to the server."
-ask TAXLENS_BASIC_AUTH_USER "Username (e.g. harshit):"
+until ask TAXLENS_BASIC_AUTH_USER "Username (e.g. harshit):" && [[ "$TAXLENS_BASIC_AUTH_USER" =~ ^[A-Za-z0-9._-]+$ ]]; do
+  warn "enter a username (letters, digits, . _ -)"
+done
 generated=""
 if confirm "Generate a strong random password for you? (recommended)"; then
   generated=$(openssl rand -base64 24 | tr -d '/+=' | cut -c1-28)
