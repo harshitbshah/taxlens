@@ -29,6 +29,19 @@ Laptop ──ssh -L 3005──► 127.0.0.1:3005   scripts/tunnel.sh — /parse-
 Laptop ◄──ssh + tar──── taxlens-data      scripts/backup-to-gdrive.sh --from-server (HM-14)
 ```
 
+## Where the data lives
+
+TaxLens stores **extracted data only** (JSON). The source PDFs are never uploaded to the server.
+
+| Location | What | Role |
+|---|---|---|
+| VM: Docker volume `taxlens-data` → `/var/lib/docker/volumes/taxlens-data/_data/` (mounted as `/data` in the container) | All files in `scripts/data-files.txt` (`.tax-returns.json`, `.india-tax-returns.json`, caches, forecast profile, retirement accounts, filing costs) | **Source of truth** once hosted. Parent dir is root-only; files are owned by the container's `bun` user (uid 1000 — the host may display that uid under another name) |
+| VM: `~/taxlens/deploy/.env` (mode 600) | `ANTHROPIC_API_KEY` for the hosted app | Kept outside the volume so backups never contain it |
+| VM: `~/taxlens-snapshots/*.tar` | Pre-overwrite snapshots from `push-data-to-server.sh --force` | Rollback |
+| Laptop: repo root (`./.tax-returns.json`, …) | The pre-hosting local copy | **Stale after the first push.** Local dev still reads it; changes there do not reach the server. Safe to delete once Drive backups exist |
+| Google Drive: `…/Tax Return/USA/taxlens/latest/` and `…/taxlens/snapshots/<timestamp>/` | Backups pulled from the VM (`backup-to-gdrive.sh --from-server`, newest 30 kept) | Off-box copy / restore source |
+| Google Drive: `…/Tax Return/USA/<year>/`, `…/Tax Return/India/`; laptop: tax-planner `years/<year>/source/` | Original PDFs (W-2s, 1099s, 26AS, filed returns) | Never on the VM. TaxLens only holds numbers extracted from them |
+
 The container publishes **only** `127.0.0.1:3005`. The VM firewall (OCI security list +
 iptables) exposes only 22/80/443; `scripts/smoke-hosted.sh` checks 3005 is unreachable.
 

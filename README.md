@@ -280,7 +280,7 @@ any device. Hosted mode (`TAXLENS_HOSTED=true`) refuses to start with an unsafe 
 disables API-key changes and data wipes from the browser, and is packaged as a Docker image
 that runs behind Caddy with HTTPS.
 
-- Runbook: [`docs/HOSTING.md`](docs/HOSTING.md)
+- Runbook: [`docs/HOSTING.md`](docs/HOSTING.md) — including **where the data lives** once hosted (server volume vs laptop copy vs Drive backups vs source PDFs)
 - Design and requirements: [`docs/HOSTED_MODE_SPEC.md`](docs/HOSTED_MODE_SPEC.md)
 
 ---
