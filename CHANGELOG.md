@@ -8,6 +8,11 @@ applicable (e.g. `HM-3` → `docs/HOSTED_MODE_SPEC.md`).
 History before 0.5.0 is not reconstructed here — see `docs/PROGRESS.md` (session log) and
 `git log`.
 
+## [Unreleased]
+
+### Added
+- fail2ban jail `caddy-basic-auth` for the hosted instance: blocks an IP after 5 wrong basic-auth passwords in 10 minutes (`deploy/fail2ban/`); Caddy JSON access logging added to the site snippet. Runbook: `docs/HOSTING.md` → fail2ban.
+
 ## [0.5.0] — 2026-10-21 (Hosted mode)
 
 Spec: [`docs/HOSTED_MODE_SPEC.md`](docs/HOSTED_MODE_SPEC.md)
@@ -46,5 +51,4 @@ Spec: [`docs/HOSTED_MODE_SPEC.md`](docs/HOSTED_MODE_SPEC.md)
 
 
 ### Known issues
-- Caddy `basic_auth` has no login-attempt limit; fail2ban on the Caddy log is a recommended follow-up.
 - Cached forecasts were deleted by pre-0.5.0 test runs; regenerate them once.

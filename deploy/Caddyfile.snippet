@@ -1,6 +1,17 @@
 # HM-11: append to /etc/caddy/Caddyfile on the server, replacing both placeholders.
 # Generate the hash with the deploy wizard (scripts/deploy-wizard.sh) — never commit a real hash.
 <TAXLENS_DOMAIN> {
+	# Access log for fail2ban (jail caddy-basic-auth, deploy/fail2ban/). Caddy redacts the
+	# Authorization header. Create the file owned by caddy BEFORE `caddy validate` — validating
+	# as root creates it root-owned and the reload then fails (see docs/HOSTING.md → fail2ban).
+	log {
+		output file /var/log/caddy/taxlens-access.log {
+			roll_size 10MiB
+			roll_keep 5
+		}
+		format json
+	}
+
 	encode zstd gzip
 
 	basic_auth {

@@ -92,6 +92,45 @@ the DuckDNS name pointing at the VM, Google Drive mounted on the laptop for back
 9. **Laptop:** `./scripts/smoke-hosted.sh` — all checks must pass.
 10. **Laptop:** `./scripts/backup-to-gdrive.sh --from-server` — first snapshot.
 
+## fail2ban (login attempt limit)
+
+Caddy's `basic_auth` has no attempt limit, so fail2ban watches Caddy's JSON access logs and
+blocks an IP on ports 80/443 after **5 wrong passwords within 10 minutes** — 1 hour at first,
+doubling for repeat offenders, up to a week. It counts only 401s on requests that *sent*
+credentials: a browser's first visit always gets one credential-less 401 before the login prompt,
+and those are ignored. Ubuntu's default `sshd` jail is also on.
+
+| Piece | Where |
+|---|---|
+| Filter | `deploy/fail2ban/caddy-basic-auth.filter.conf` → `/etc/fail2ban/filter.d/caddy-basic-auth.conf` |
+| Jail | `deploy/fail2ban/caddy-basic-auth.jail.local` → `/etc/fail2ban/jail.d/caddy-basic-auth.local` |
+| Logs watched | `/var/log/caddy/*-access.log` (TaxLens and savvywatch; `log` block in each site) |
+| Ban mechanism | nftables table `inet f2b-table` (Ubuntu 24.04 default `banaction = nftables`), hook `input`, before the iptables-nft rules |
+
+**Install / reinstall** (VM):
+```bash
+sudo apt-get install -y fail2ban
+sudo install -m 644 deploy/fail2ban/caddy-basic-auth.filter.conf /etc/fail2ban/filter.d/caddy-basic-auth.conf
+sudo install -m 644 deploy/fail2ban/caddy-basic-auth.jail.local /etc/fail2ban/jail.d/caddy-basic-auth.local
+# Log files must exist and be owned by caddy BEFORE validating/reloading Caddy:
+sudo install -o caddy -g caddy -m 640 /dev/null /var/log/caddy/taxlens-access.log
+sudo systemctl restart fail2ban
+sudo fail2ban-regex /var/log/caddy/taxlens-access.log /etc/fail2ban/filter.d/caddy-basic-auth.conf
+```
+
+**Check / unban** (VM):
+```bash
+sudo fail2ban-client status caddy-basic-auth        # failures and current bans
+sudo fail2ban-client set caddy-basic-auth unbanip <IP>
+```
+Locked yourself out after mistyping? SSH still works (only 80/443 are blocked) — unban as above,
+or wait an hour. **Test a ban safely** with the reserved address `192.0.2.123`, never your own IP.
+
+**Gotcha (hit on 2026-10-21):** `sudo caddy validate` opens the configured log files, creating
+them root-owned; the following `systemctl reload caddy` then fails with "opening log writer".
+Caddy keeps serving the previous config, so nothing goes down — fix with
+`sudo chown caddy:caddy /var/log/caddy/*-access.log` and reload.
+
 ## Updating the app
 
 ```bash
@@ -165,5 +204,6 @@ docker volume rm taxlens-restore-test
 | `403 Cross-site request blocked` from the app itself | Reverse proxy not passing the original `Host` header (Caddy does by default — check for `header_up Host` overrides) |
 | `403 Disabled in hosted mode` | Expected for key changes / reset / browser-supplied keys — do these over SSH |
 | TLS error on first visit | Caddy hasn't issued the certificate yet; check `journalctl -u caddy` and that 80/443 are open |
+| Your own connection suddenly can't reach any of your sites | Likely a fail2ban ban after mistyped passwords — `sudo fail2ban-client status caddy-basic-auth`, then `unbanip` |
 | `smoke-hosted.sh` "port 3005 reachable" fails | Compose `ports` must be `127.0.0.1:3005:3005`, never `3005:3005` |
 | Disk full during build | `docker builder prune -f`; `docker image prune` |

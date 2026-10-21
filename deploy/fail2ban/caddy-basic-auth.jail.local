@@ -1,0 +1,14 @@
+# Install as /etc/fail2ban/jail.d/caddy-basic-auth.local. See docs/HOSTING.md → fail2ban.
+# Caddy's basic_auth has no attempt limit of its own; this is it.
+[caddy-basic-auth]
+enabled = true
+filter = caddy-basic-auth
+logpath = /var/log/caddy/*-access.log
+backend = polling
+port = http,https
+maxretry = 5
+findtime = 10m
+bantime = 1h
+# Repeat offenders get exponentially longer bans, capped at a week.
+bantime.increment = true
+bantime.maxtime = 1w

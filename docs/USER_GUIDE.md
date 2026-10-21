@@ -155,7 +155,8 @@ smoke test with `!` inside Claude Code — that would copy what's on screen into
 
 | What you see | What to do |
 |---|---|
-| Login box keeps reappearing | Wrong username/password. Username is `harshit`. |
+| Login box keeps reappearing | Wrong username/password. Username is `harshit`. Five wrong tries in 10 minutes blocks you for an hour (§11). |
+| None of your sites load from home, but work on mobile data | You were blocked by fail2ban after wrong passwords. Wait an hour or ask Claude to unban your IP. |
 | *"Couldn't load your tax data"* | Wait a minute and reload. If it persists, ask Claude to "check the TaxLens container on the server". |
 | Browser warns the site isn't secure | Rare — certificate renewal problem. Ask Claude to check Caddy. |
 | *"Cross-site request blocked"* when using TaxLens normally | Shouldn't happen. Ask Claude — the proxy may have stopped passing the right header. |
@@ -174,9 +175,10 @@ More detail: [`HOSTING.md` → Troubleshooting](HOSTING.md#troubleshooting).
   source documents.
 - **What's protected even if someone gets past the password:** they can't change your API key,
   can't wipe all data from the browser, and can't download the raw data files.
-- **What isn't protected yet:** Caddy doesn't limit login attempts. Your password is under 16
-  characters, so adding **fail2ban** (blocks an address after repeated wrong passwords) is the
-  recommended next step — about 20 minutes. Ask Claude to "set up fail2ban for Caddy".
+- **Password guessing is limited:** after 5 wrong passwords in 10 minutes, that internet
+  address is blocked from all your sites for an hour (longer if it keeps happening). Typing a
+  wrong password once or twice is fine. If you lock yourself out, wait an hour or ask Claude to
+  "unban my IP in fail2ban" — SSH still works while a ban is on.
 - **The code is public on GitHub** (it's a fork). Your tax data files have never been in it.
 
 ---
@@ -192,7 +194,7 @@ More detail: [`HOSTING.md` → Troubleshooting](HOSTING.md#troubleshooting).
 
 ## 13. Open to-dos
 
-- [ ] Set up fail2ban for Caddy (§11)
+- [x] Set up fail2ban for Caddy (§11) — done 2026-10-21
 - [ ] Regenerate forecasts; re-enter 2025 India filing costs (§5)
 - [ ] Rehearse a restore from a Drive snapshot once
 - [ ] Decide on the public repo (see private notes)

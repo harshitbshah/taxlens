@@ -440,7 +440,7 @@ Rules:
 | HM-9 bind change breaks access from another local device | Documented; set `TAXLENS_HOSTNAME=0.0.0.0` to restore | env var |
 | HM-6 breaks the upstream demo site behaviour | Not used by this fork; `DEMO_MODE=true` still works | revert commit |
 | Server disk is ~90% full | Prune images/build cache before first build; image target < 500 MB (463 MB measured, HM-10) | — |
-| Basic Auth brute force | Password chosen by the user; wizard minimum 8 characters (lowered from 16 at the user's request, 2026-10-21) and warns under 16. Caddy `basic_auth` has no attempt limit, so with a shorter password fail2ban on the Caddy log is the recommended follow-up (deferred, §13). | — |
+| Basic Auth brute force | Password chosen by the user; wizard minimum 8 characters (lowered from 16 at the user's request, 2026-10-21) and warns under 16. Caddy `basic_auth` has no attempt limit; mitigated by fail2ban (done 2026-10-21, §13). | — |
 | Bad deploy | `docker compose` keeps volume; previous image tag retained | `docker compose up -d` with previous tag |
 
 ## 11. Documentation deliverables
@@ -478,4 +478,4 @@ Deliberately not changed (judgement-call smells, low value vs churn): `FILE`/`CA
 |---|---|
 | Domain name | Chosen and registered on DuckDNS 2026-10-21 (resolves to the VM). Name kept out of the repo per §9 — referred to as `<TAXLENS_DOMAIN>`. |
 | Backup schedule | Manual only. The optional `systemd --user` timer in HM-14 is dropped. |
-| fail2ban | Deferred to a separate server-hardening task covering all sites on the VM (TaxLens, savvywatch, Wallos, SSH). Revisit if the login password is under 16 characters — the wizard minimum is 8 at the user's request. |
+| fail2ban | Initially deferred; **done 2026-10-21** after the password minimum was lowered to 8. Jail `caddy-basic-auth` (5 wrong credentials / 10 min → 1 h ban, increasing to 1 week) on the TaxLens and savvywatch access logs, plus Ubuntu's default `sshd` jail. Files in `deploy/fail2ban/`; runbook in `docs/HOSTING.md` → fail2ban. Wallos has its own app login and no Caddy-level auth, so it is not covered. |
