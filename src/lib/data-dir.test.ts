@@ -23,6 +23,12 @@ describe("HM-2: test runs are isolated from real data", () => {
     expect(path.resolve(getDataDir()).startsWith(path.resolve(tmpdir()))).toBe(true);
   });
 
+  // Bun auto-loads the repo's .env, which holds the real Anthropic key. A test that reached the
+  // API would bill the user, so the preload strips it; tests that need a key set a dummy one.
+  test("the real Anthropic API key is not visible to tests", () => {
+    expect(process.env.ANTHROPIC_API_KEY).toBeUndefined();
+  });
+
   test("data dir is neither the repo root nor $HOME", () => {
     const dir = path.resolve(getDataDir());
     expect(dir).not.toBe(REPO_ROOT);

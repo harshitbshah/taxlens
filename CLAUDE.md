@@ -184,7 +184,7 @@ All data files (`.tax-returns.json`, `.india-tax-returns.json`, every `*-cache.j
 
 ## Testing
 
-**Tests never touch real data.** `bunfig.toml` preloads `tests/setup/isolate-data-dir.ts`, which points `TAX_UI_DATA_DIR` at a fresh temp dir for the whole run (HM-2). Tests that need their own dir may still create one with `mkdtemp`. Never remove the preload. Background: before HM-1/HM-2, `bun test` read and wrote the real `~/.filing-costs.json` and deleted the real `.forecast-cache.json`.
+**Tests never touch real data.** `bunfig.toml` preloads `tests/setup/isolate-data-dir.ts`, which points `TAX_UI_DATA_DIR` at a fresh temp dir for the whole run (HM-2). Tests that need their own dir may still create one with `mkdtemp`. The preload also deletes `ANTHROPIC_API_KEY` (Bun auto-loads the real key from `.env`) — tests that need a key must set a dummy one. Never remove the preload. Background: before HM-1/HM-2, `bun test` read and wrote the real `~/.filing-costs.json` and deleted the real `.forecast-cache.json`.
 
 Every non-trivial change requires tests:
 - New logic → unit test in `src/lib/__tests__/` or alongside the file

@@ -94,6 +94,7 @@ written later that forget to isolate.
 - The preload creates a fresh temp dir per test run, sets `TAX_UI_DATA_DIR` to it, and removes it
   on exit.
 - Individual tests may still override with their own temp dir.
+- The preload also deletes `ANTHROPIC_API_KEY`. Bun auto-loads the repo `.env` (the real key) before the preload; without this, any test reaching the Anthropic API would be billed. *(Added 2026-10-21 after an HM-3 HTTP probe showed `hasKey: true` inside tests.)*
 
 AC:
 1. During `bun test`, `getDataDir()` resolves under `os.tmpdir()`.
@@ -101,6 +102,7 @@ AC:
 3. The two previously failing `filing-costs cache` tests pass.
 4. Manual check (documented in PROGRESS): `~/.filing-costs.json` and the repo's `.*.json`
    mtimes are unchanged after a full `bun test`.
+5. `process.env.ANTHROPIC_API_KEY` is undefined during tests.
 
 ### HM-3 — Server factory ✅
 

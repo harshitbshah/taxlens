@@ -26,6 +26,7 @@ Spec: [`docs/HOSTED_MODE_SPEC.md`](docs/HOSTED_MODE_SPEC.md)
 
 ### Fixed
 - `bun test` no longer reads or writes real data: the filing-costs tests had been modifying `~/.filing-costs.json`, and `forecast-cache.test.ts` had been deleting the real `.forecast-cache.json` (HM-1, HM-2).
+- `bun test` no longer sees the real `ANTHROPIC_API_KEY` from `.env`; the test preload strips it so no test can make billable API calls (HM-2).
 
 ### Known issues (to be fixed under this release)
 - Frontend shows demo data on any non-localhost hostname (HM-6).
