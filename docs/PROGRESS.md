@@ -4,6 +4,52 @@ One entry per checkpoint. Most recent first.
 
 ---
 
+## 2026-10-21 (Hosted mode 0.5.0 — HM-1…HM-14, deployed)
+
+Spec: `docs/HOSTED_MODE_SPEC.md` (spec-first, approved before code). Runbook: `docs/HOSTING.md`. Every requirement was built red → green with mattpocock `tdd` at pre-agreed seams (S1 real HTTP via `tests/helpers/test-server.ts`, S2 `resolveServerEnv`, S3 `isCrossSiteWrite`, S4 `resolveDemoMode`, S5 source guards only for regressions, S6 `scripts/verify-image.sh`), one commit per requirement, then a two-axis `code-review` (standards + spec) and a fix commit.
+
+**Done:**
+- HM-1/HM-2: `dataPath()` resolved per call; `bunfig.toml` test preload forces a temp data dir, strips the real `ANTHROPIC_API_KEY` and mode switches. `.filing-costs.json` moved from `$HOME` to the data dir.
+- HM-3: `createServer()` in `src/server.ts`; `src/index.ts` thin entry.
+- HM-4/HM-9: `resolveServerEnv()` — hosted mode refuses to start (exit 1, all errors); bind `127.0.0.1` by default; `/api/health`.
+- HM-5: production static handler — dotfile segments 404, prefix-safe containment, SPA fallback; data dir may not be inside static dir.
+- HM-6: demo mode decided by the server only (hostname sniffing removed); load errors shown, never sample data.
+- HM-7: hosted mode makes the API key read-only (403 on key/wipe routes and browser-supplied keys; invalid-key errors don't wipe the env key); Reset hidden.
+- HM-8: cross-site state-changing `/api/*` requests → 403 (all modes).
+- HM-10: Dockerfile (463 MB, non-root, healthcheck) + `verify-image.sh` (12 checks).
+- HM-11…14: `deploy/` config, `deploy-wizard.sh`, `smoke-hosted.sh` (13 checks), `push-data-to-server.sh`, `tunnel.sh`, `backup-to-gdrive.sh --from-server`, `data-files.txt`.
+- **Deployed** to the VM behind Caddy basic_auth with Let's Encrypt TLS: data pushed (checksums OK), first server backup taken, `smoke-hosted.sh` 13/13 pass, other Caddy sites unaffected (additive 19-line change, backup kept).
+- Tests: 207 pass / 2 fail at start → 301 pass / 0 fail.
+
+**Real bugs found (all fixed, all in CHANGELOG):**
+- Tests wrote to real `~/.filing-costs.json` and deleted the real `.forecast-cache.json`; tests also saw the real API key.
+- Production served `/.env` and `/.tax-returns.json` if present in the static dir.
+- Any website could wipe local data via a cross-site POST to `/api/clear-data`.
+- Any non-localhost hostname showed sample data and never loaded real returns.
+- `/api/parse` saved browser-supplied keys; `/api/extract-year` + 4 other error paths deleted the server key.
+- Local dev listened on all interfaces.
+
+**Decisions (rationale in spec §9/§12/§13):**
+- Caddy `basic_auth` over Authelia/app login; app-level cross-site guard (testable, protects localhost too); disable key/wipe routes in hosted mode instead of confirmations; SSH tunnel instead of API token; build on the VM; manual laptop-driven backups; fail2ban deferred.
+- Overlap rule narrowed to the actual leak (data inside static) so `bun run start` keeps working.
+- Wizard password minimum lowered to 8 at the user's request (warns < 16) — strengthens the case for fail2ban.
+- Public repo: real domain/IP/hash only in gitignored `deploy/local.env` / server `deploy/.env`.
+
+**Known gaps:**
+- fail2ban on the Caddy log not set up (Caddy basic_auth has no attempt limit).
+- Restore drill from a Drive snapshot not yet rehearsed (documented in HOSTING.md).
+- Forecast cache was wiped by old test runs — regenerate forecasts (US, India) in the hosted app.
+- 2025 India filing costs need re-entry (removed after the test-data incident).
+- Repo is public and README screenshots contain real income figures (public fork exists) — deferred cleanup.
+- Judgement-call smells left as-is (spec §12).
+- VM disk ~91% used (`~/.openclaw` ~17 GB).
+
+**Next:**
+- Round 2: tax-planner integration (planner pages, open items, document links via Drive) — new spec.
+- Optional: fail2ban; make repo private + scrub screenshots; restore drill.
+
+---
+
 ## 2026-04-11 (SOLID refactoring + Analysis tab: Claude Code generates, TaxLens renders)
 
 **Done:**

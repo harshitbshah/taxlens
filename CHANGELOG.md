@@ -8,7 +8,7 @@ applicable (e.g. `HM-3` → `docs/HOSTED_MODE_SPEC.md`).
 History before 0.5.0 is not reconstructed here — see `docs/PROGRESS.md` (session log) and
 `git log`.
 
-## [Unreleased] — 0.5.0 (Hosted mode)
+## [0.5.0] — 2026-10-21 (Hosted mode)
 
 Spec: [`docs/HOSTED_MODE_SPEC.md`](docs/HOSTED_MODE_SPEC.md)
 
@@ -43,3 +43,7 @@ Spec: [`docs/HOSTED_MODE_SPEC.md`](docs/HOSTED_MODE_SPEC.md)
 - `bun test` no longer reads or writes real data: the filing-costs tests had been modifying `~/.filing-costs.json`, and `forecast-cache.test.ts` had been deleting the real `.forecast-cache.json` (HM-1, HM-2).
 - `bun test` no longer sees the real `ANTHROPIC_API_KEY` from `.env`; the test preload strips it so no test can make billable API calls (HM-2).
 
+
+### Known issues
+- Caddy `basic_auth` has no login-attempt limit; fail2ban on the Caddy log is a recommended follow-up.
+- Cached forecasts were deleted by pre-0.5.0 test runs; regenerate them once.

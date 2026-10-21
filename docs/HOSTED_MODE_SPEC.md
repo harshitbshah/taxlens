@@ -1,6 +1,6 @@
 # Hosted Mode — Spec
 
-Status: **Approved 2026-10-21** — implementation in progress
+Status: **Implemented and deployed 2026-10-21** (0.5.0). Smoke test 13/13 on the live instance.
 Created: 2026-10-21
 Target version: 0.5.0
 Supersedes: the Authelia/Docker-network plan previously in `docs/HOSTING.md`
@@ -271,7 +271,7 @@ AC — `scripts/verify-image.sh` (runs locally with Docker; not part of `bun tes
 5. Data written via `POST /api/returns` survives `docker compose down && up`.
 6. Process runs as non-root.
 
-### HM-11 — Deployment config ✅ (files) — deploy in progress
+### HM-11 — Deployment config ✅ (deployed 2026-10-21)
 
 > Implemented 2026-10-21: `deploy/docker-compose.yml`, `deploy/.env.example`, `deploy/Caddyfile.snippet`, `deploy/local.env.example`, `scripts/smoke-hosted.sh` (13 checks; written first and run red against the live domain before deploy — 12 fail, 3005-unreachable passes). Real host/domain/hash live in gitignored `deploy/local.env`, read via `scripts/lib-deploy.sh`. Human-only steps are in `scripts/deploy-wizard.sh` (mattpocock `wizard` template; library section byte-identical to the template): the login password is hashed locally with `Bun.password.hash` (bcrypt, cost 12) so the plaintext never leaves the laptop; the API key goes over SSH straight into the server's `deploy/.env` (mode 600) and is never written on the laptop.
 
