@@ -1,7 +1,8 @@
 # Hosting TaxLens — Runbook
 
 How to run TaxLens on a self-hosted VM behind a username/password. Requirements and design
-rationale: [`HOSTED_MODE_SPEC.md`](HOSTED_MODE_SPEC.md) (HM-1 … HM-14).
+rationale: [`HOSTED_MODE_SPEC.md`](HOSTED_MODE_SPEC.md) (HM-1 … HM-14). Day-to-day use in plain language:
+[`USER_GUIDE.md`](USER_GUIDE.md).
 
 This repo is public, so real values never appear here. Placeholders:
 

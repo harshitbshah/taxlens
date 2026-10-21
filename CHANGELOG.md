@@ -25,6 +25,7 @@ Spec: [`docs/HOSTED_MODE_SPEC.md`](docs/HOSTED_MODE_SPEC.md)
 - `Dockerfile` + `.dockerignore` for hosted mode (non-root, `/data` volume, healthcheck, no data or secrets in the build context) and `scripts/verify-image.sh` acceptance checks (HM-10).
 - Deployment: `deploy/` (compose, Caddy snippet, env templates), `scripts/deploy-wizard.sh`, `scripts/smoke-hosted.sh`, `scripts/push-data-to-server.sh`, `scripts/tunnel.sh`, `scripts/data-files.txt`; `docs/HOSTING.md` rewritten as the runbook; README "Self-hosting" section (HM-11…HM-14).
 - `scripts/backup-to-gdrive.sh --from-server` with dated snapshots; local mode now also backs up `.filing-costs.json`, `.forecast-cache.json`, `.forecast-profile.json` (HM-14).
+- `docs/USER_GUIDE.md` — plain-language guide to the hosted setup.
 - `docs/HOSTED_MODE_SPEC.md` — requirements HM-1 … HM-14 for running TaxLens on a self-hosted server behind a username/password.
 - `CHANGELOG.md` (this file).
 

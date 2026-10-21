@@ -109,6 +109,8 @@ ANTHROPIC_API_KEY=sk-ant-...
 
 ## User Guide
 
+> Running TaxLens on your own server? See [`docs/USER_GUIDE.md`](docs/USER_GUIDE.md) for day-to-day use of the hosted setup.
+
 ### Importing returns
 
 **US (1040):** Upload PDFs directly in the browser — drag-and-drop or the file picker. One PDF per tax year. The server parses it with Claude Sonnet and stores the result locally.
@@ -280,6 +282,7 @@ any device. Hosted mode (`TAXLENS_HOSTED=true`) refuses to start with an unsafe 
 disables API-key changes and data wipes from the browser, and is packaged as a Docker image
 that runs behind Caddy with HTTPS.
 
+- **User guide for the hosted setup** (logging in, adding a year, backups, updates, password changes, troubleshooting): [`docs/USER_GUIDE.md`](docs/USER_GUIDE.md)
 - Runbook: [`docs/HOSTING.md`](docs/HOSTING.md) — including **where the data lives** once hosted (server volume vs laptop copy vs Drive backups vs source PDFs)
 - Design and requirements: [`docs/HOSTED_MODE_SPEC.md`](docs/HOSTED_MODE_SPEC.md)
 

@@ -27,6 +27,7 @@ Tax return PDF parser using Claude API and Bun.
 - [`docs/ADDING_COUNTRY_CONSTANTS.md`](docs/ADDING_COUNTRY_CONSTANTS.md) — how to add tax constants for a new country
 - [`docs/ADDING_COUNTRY.md`](docs/ADDING_COUNTRY.md) — full guide to onboarding a new country (schema, parser, server plugin, client plugin, registration)
 - [`docs/HOSTED_MODE_SPEC.md`](docs/HOSTED_MODE_SPEC.md) — hosted-mode spec (HM-1 … HM-14): self-hosting on OCI behind Caddy basic_auth; requirement IDs are used in tests, commits, and CHANGELOG
+- [`docs/USER_GUIDE.md`](docs/USER_GUIDE.md) — plain-language guide to living with the hosted setup (login, adding a year, backups, updates, secrets, troubleshooting, yearly routine, open to-dos). Keep it in sync when hosted behaviour or scripts change
 - [`docs/HOSTING.md`](docs/HOSTING.md) — hosting runbook, incl. "Where the data lives" (hosted volume is the source of truth; laptop copy is stale): first deploy, update, rollback, tunnel, backups, secret rotation, troubleshooting
 - [`CHANGELOG.md`](CHANGELOG.md) — release notes from 0.5.0 onward; update with every user-visible or security-relevant change
 
