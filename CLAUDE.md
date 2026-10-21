@@ -221,3 +221,19 @@ After changes, run lint and type check:
 - `bunx tsc --noEmit`
 
 Do NOT run `bun run build` — the dev server uses HMR so builds are unnecessary during development.
+
+## Agent skills
+
+Configured for [mattpocock/skills](https://github.com/mattpocock/skills) (plugin `mattpocock-skills`). In use for hosted mode: `tdd` (red → green at pre-agreed seams), `code-review` (standards + spec axes), `wizard` (human-only server steps).
+
+### Issue tracker
+
+Local markdown under `.scratch/<feature>/issues/`; specs stay in `docs/<NAME>_SPEC.md`. See `docs/agents/issue-tracker.md`.
+
+### Triage labels
+
+Default five roles (`needs-triage`, `needs-info`, `ready-for-agent`, `ready-for-human`, `wontfix`) as `Status:` lines. See `docs/agents/triage-labels.md`.
+
+### Domain docs
+
+Single-context: `GLOSSARY.md` + `docs/adr/` at the repo root, created lazily. See `docs/agents/domain.md`.
