@@ -18,6 +18,8 @@ Spec: [`docs/HOSTED_MODE_SPEC.md`](docs/HOSTED_MODE_SPEC.md)
 - `src/server.ts` `createServer()` factory and `tests/helpers/test-server.ts`, enabling real HTTP route tests (HM-3).
 - Hosted-mode config validation: with `TAXLENS_HOSTED=true` the server refuses to start (exit 1, all errors listed) unless `NODE_ENV=production`, absolute non-overlapping `TAX_UI_DATA_DIR`/`TAX_UI_STATIC_DIR`, `ANTHROPIC_API_KEY` set and `DEMO_MODE` off (HM-4).
 - `TAXLENS_HOSTNAME` env var for the bind address (HM-9).
+- Hosted mode disables `POST /api/config/key`, `POST /api/clear-data`, and browser-supplied `apiKey` on `/api/parse` / `/api/extract-year` (403), and never deletes the server's key on an invalid-key error (HM-7).
+- `/api/config` now includes `isHosted` (HM-7).
 - `GET /api/health` → `{ ok: true }` liveness endpoint (HM-9).
 - Production mode serves `index.html` for unknown non-API paths so client-side deep links load (HM-5).
 - `docs/HOSTED_MODE_SPEC.md` — requirements HM-1 … HM-14 for running TaxLens on a self-hosted server behind a username/password.

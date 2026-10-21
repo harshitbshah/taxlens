@@ -187,6 +187,8 @@ bun run scripts/validate-returns.ts
 Endpoints with no data: `GET /api/health` → `{ ok: true }` (HM-9) — keep it that way, it is unauthenticated inside the container network.
 | `DEMO_MODE` | — | `true` serves sample data; forbidden in hosted mode |
 
+Hosted mode (HM-7): routes are built by `buildRoutes({ hosted })` in `src/server.ts`. In hosted mode the API key is read-only (env only): key-changing and data-wiping routes return `disabledInHostedMode()` (403). On invalid-key errors call `forgetInvalidApiKey(ctx.hosted)`, never `removeApiKey()` directly (guard test enforces this).
+
 Cross-site guard (HM-8): every `/api/*` route is wrapped by `guardApiRoutes()` in `src/server.ts` — non-GET requests flagged cross-site by `Sec-Fetch-Site` or a mismatched `Origin` get 403. Add routes to the `routes` table and they are guarded automatically; don't register API routes elsewhere.
 
 Production static handler rules (HM-5): dotfile path segments always 404; unknown non-`/api/` paths return `index.html`; startup refuses a data dir that is or sits inside the static dir.

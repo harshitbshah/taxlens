@@ -183,18 +183,32 @@ AC:
 3. `GET /api/config` on a hosted test server → `{ isHosted: true, isDemo: false }`.
 4. Source-level guard: `isHostedEnvironment` no longer referenced in `src/`.
 
-### HM-7 — Dangerous routes disabled in hosted mode
+### HM-7 — Dangerous routes disabled in hosted mode; API key is read-only ✅ (server) — UI with HM-6
+
+> Server side implemented 2026-10-21 in `src/server.ts` (`buildRoutes({ hosted })`, `disabledInHostedMode()`) and `src/lib/api-key-policy.ts`. HTTP tests in `tests/server.test.ts`, unit + source guard in `src/lib/api-key-policy.test.ts`.
+> **Scope widened during implementation** (same intent — "the key can't be changed from the browser in hosted mode"): code reading found three more ways the key could change besides `/api/config/key`:
+> 1. `/api/parse` accepted a form `apiKey` and **saved** it to `.env`.
+> 2. `/api/extract-year` accepted a form `apiKey`; if it was bad, the error path deleted the **server's** key.
+> 3. Five routes call `removeApiKey()` when an error message contains "401"/"authentication"/"API key". In hosted mode the key comes from the container env, so this would leave the app dead until restart.
+> Also observed: locally, `POST /api/config/key` makes a live Anthropic validation call — the hosted block returns before it.
 
 **Why:** Behind a single password, the key and the wipe button are the highest-impact actions.
 
-- In hosted mode: `POST /api/config/key`, `DELETE /api/config/key` (if present), and
-  `POST /api/clear-data` return **403** `{ "error": "Disabled in hosted mode" }` without side effects.
+- Routes are built by `buildRoutes({ hosted })` so every handler can see the mode.
+- In hosted mode, return **403** `{ "error": "Disabled in hosted mode" }` with no side effects for:
+  `POST /api/config/key`, `POST /api/clear-data`, and any `POST /api/parse` or `POST /api/extract-year` request that carries a form `apiKey`.
+  (`DELETE /api/config/key` does not exist.)
+- Invalid-key handling goes through `forgetInvalidApiKey(hosted)`: removes the key locally, no-op in hosted mode. `server.ts` must not call `removeApiKey()` directly.
 - `/api/config` exposes `isHosted`; Settings UI hides key management and the reset action when
-  `isHosted` is true (display-only change, no test required per CLAUDE.md, covered by E2E smoke if convenient).
+  `isHosted` is true (display-only change, no test required per CLAUDE.md) — implemented with HM-6.
 
-AC (HTTP):
-1. Hosted: each route → 403, and the data files / `.env` in the temp data dir are unchanged.
-2. Local: `POST /api/clear-data` still clears data (existing behaviour preserved).
+AC:
+1. Hosted: `POST /api/clear-data` → 403, data file unchanged.
+2. Hosted: `POST /api/config/key` → 403, no `.env` written, no network call.
+3. Hosted: `/api/parse` and `/api/extract-year` with form `apiKey` → 403, no `.env` written.
+4. `forgetInvalidApiKey(true)` leaves `process.env` and `.env` intact; `forgetInvalidApiKey(false)` removes both.
+5. `GET /api/config` → `isHosted: true` hosted, `false` locally.
+6. Local: `POST /api/clear-data` still clears data (covered by the HM-8 control test).
 
 ### HM-8 — Reject cross-site writes (all modes) ✅
 

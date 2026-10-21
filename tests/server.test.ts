@@ -175,3 +175,57 @@ describe("HM-8: cross-site writes are rejected on every /api route", () => {
     expect(res.status).toBe(403);
   });
 });
+
+describe("HM-7: hosted mode is visible to the frontend", () => {
+  test("GET /api/config reports isHosted: true on a hosted server", async () => {
+    server = await startTestServer({ hosted: true });
+    expect(await (await fetch(`${server.url}/api/config`)).json()).toMatchObject({
+      isHosted: true,
+      isDemo: false,
+    });
+  });
+
+  test("GET /api/config reports isHosted: false locally", async () => {
+    server = await startTestServer();
+    expect(await (await fetch(`${server.url}/api/config`)).json()).toMatchObject({
+      isHosted: false,
+    });
+  });
+});
+
+describe("HM-7: dangerous routes are disabled in hosted mode", () => {
+  const SEEDED = '{"2020":{"seeded":true}}';
+
+  test("POST /api/clear-data → 403 and data is untouched", async () => {
+    server = await startTestServer({ hosted: true });
+    await writeFile(path.join(server.dataDir, ".tax-returns.json"), SEEDED);
+    const res = await fetch(`${server.url}/api/clear-data`, { method: "POST" });
+    expect(res.status).toBe(403);
+    expect(await res.json()).toEqual({ error: "Disabled in hosted mode" });
+    expect(await Bun.file(path.join(server.dataDir, ".tax-returns.json")).text()).toBe(SEEDED);
+  });
+
+  test("POST /api/config/key → 403 and no .env is written", async () => {
+    server = await startTestServer({ hosted: true });
+    const res = await fetch(`${server.url}/api/config/key`, {
+      method: "POST",
+      headers: { "content-type": "application/json" },
+      body: JSON.stringify({ apiKey: "sk-ant-attacker" }),
+    });
+    expect(res.status).toBe(403);
+    expect(await Bun.file(path.join(server.dataDir, ".env")).exists()).toBe(false);
+  });
+
+  test.each(["/api/parse", "/api/extract-year"])(
+    "%s rejects a browser-supplied apiKey → 403, nothing saved",
+    async (route) => {
+      server = await startTestServer({ hosted: true });
+      const form = new FormData();
+      form.append("pdf", new File(["%PDF-1.4"], "return.pdf", { type: "application/pdf" }));
+      form.append("apiKey", "sk-ant-attacker");
+      const res = await fetch(`${server.url}${route}`, { method: "POST", body: form });
+      expect(res.status).toBe(403);
+      expect(await Bun.file(path.join(server.dataDir, ".env")).exists()).toBe(false);
+    },
+  );
+});

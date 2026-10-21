@@ -26,6 +26,7 @@ if (!resolved.ok) {
 const { config } = resolved;
 const server = createServer({
   port: parsePort(),
+  hosted: config.hosted,
   hostname: config.hostname,
   production: config.production,
   staticDir: config.staticDir,
