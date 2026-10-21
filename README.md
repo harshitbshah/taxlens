@@ -247,7 +247,7 @@ bun run lint         # ESLint + Prettier
 
 ## Privacy & Security
 
-All data stays local. Tax return PDFs are sent to Anthropic's API (your key) for parsing and then stored on your machine. Nothing goes to any other server.
+All data stays on machines you control. Tax return PDFs are sent to Anthropic's API (your key) for parsing and then stored on your machine — or on your own server if you self-host. Nothing goes to any other server.
 
 - All return data files (`.tax-returns.json`, `.<country>-tax-returns.json`) are gitignored — never committed
 - API key stays in `.env` — never committed
@@ -259,28 +259,29 @@ Anthropic's commercial terms prohibit training models on API customer data. See 
 
 ## Backup
 
-TaxLens data files are gitignored and exist only on your local machine. Back them up manually
-after adding a new year's data:
+TaxLens data files are gitignored, so git doesn't cover them. The list lives in
+`scripts/data-files.txt` (returns, caches, forecast profile, retirement accounts, filing costs).
 
 ```bash
-cd /home/harshit-shah/Projects/taxlens
-./scripts/backup-to-gdrive.sh
+./scripts/backup-to-gdrive.sh                # local data → Google Drive
+./scripts/backup-to-gdrive.sh --from-server  # hosted instance → dated snapshot + latest/
 ```
 
-**What gets backed up:**
-
-| File | Contains |
-|------|----------|
-| `.tax-returns.json` | All parsed US returns (all years) |
-| `.india-tax-returns.json` | All parsed India returns (all years) |
-| `.analysis-cache.json` | Analysis tab content |
-| `.insights-cache.json` | Per-year AI insights |
-| `.retirement-accounts.json` | Retirement account data |
-
-**Google Drive destination:**
-`~/gdrive/Important Documents/Documents/Tax Return/USA/taxlens/`
+**Google Drive destination:** `~/gdrive/Important Documents/Documents/Tax Return/USA/taxlens/`
 
 Note: these are hidden files (dot-prefixed) — press **Ctrl+H** in the file browser to show them.
+
+---
+
+## Self-hosting
+
+TaxLens can run on your own server behind a username and password, so you can open it from
+any device. Hosted mode (`TAXLENS_HOSTED=true`) refuses to start with an unsafe configuration,
+disables API-key changes and data wipes from the browser, and is packaged as a Docker image
+that runs behind Caddy with HTTPS.
+
+- Runbook: [`docs/HOSTING.md`](docs/HOSTING.md)
+- Design and requirements: [`docs/HOSTED_MODE_SPEC.md`](docs/HOSTED_MODE_SPEC.md)
 
 ---
 

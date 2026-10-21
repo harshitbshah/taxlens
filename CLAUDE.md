@@ -27,7 +27,7 @@ Tax return PDF parser using Claude API and Bun.
 - [`docs/ADDING_COUNTRY_CONSTANTS.md`](docs/ADDING_COUNTRY_CONSTANTS.md) — how to add tax constants for a new country
 - [`docs/ADDING_COUNTRY.md`](docs/ADDING_COUNTRY.md) — full guide to onboarding a new country (schema, parser, server plugin, client plugin, registration)
 - [`docs/HOSTED_MODE_SPEC.md`](docs/HOSTED_MODE_SPEC.md) — hosted-mode spec (HM-1 … HM-14): self-hosting on OCI behind Caddy basic_auth; requirement IDs are used in tests, commits, and CHANGELOG
-- [`docs/HOSTING.md`](docs/HOSTING.md) — OCI hosting plan (being rewritten as a runbook under HOSTED_MODE_SPEC)
+- [`docs/HOSTING.md`](docs/HOSTING.md) — hosting runbook: first deploy, update, rollback, tunnel, backups, secret rotation, troubleshooting
 - [`CHANGELOG.md`](CHANGELOG.md) — release notes from 0.5.0 onward; update with every user-visible or security-relevant change
 
 ## Architecture
@@ -224,6 +224,7 @@ Run before committing:
 ## Security
 
 This is a public repo. Never commit or push:
+- Real hostnames, IPs, domains or password hashes — use `<OCI_HOST>` / `<TAXLENS_DOMAIN>` placeholders; real values live in gitignored `deploy/local.env` (laptop) and `deploy/.env` (server)
 - `.tax-returns.json` (already in `.gitignore` — user's actual tax data)
 - `.env` or any file containing API keys
 - Any file with PII, SSNs, account numbers, or real dollar amounts from actual returns

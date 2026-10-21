@@ -145,6 +145,11 @@ For each new year (e.g., when 2026 returns are ready in early 2027):
 
 No Anthropic API costs for either step (beyond Chat).
 
+**Hosted instance (HM-13):** when TaxLens runs on the server (see `docs/HOSTING.md`), open the
+tunnel first so `localhost:3005` reaches it — stop any local dev server, then
+`./scripts/tunnel.sh`. The skills' URLs stay unchanged. Requests over the tunnel need no
+password (SSH authenticates) and pass the cross-site guard because they carry no browser headers.
+
 ---
 
 ## Populating 2025 Immediately

@@ -271,7 +271,9 @@ AC — `scripts/verify-image.sh` (runs locally with Docker; not part of `bun tes
 5. Data written via `POST /api/returns` survives `docker compose down && up`.
 6. Process runs as non-root.
 
-### HM-11 — Deployment config
+### HM-11 — Deployment config ✅ (files) — deploy in progress
+
+> Implemented 2026-10-21: `deploy/docker-compose.yml`, `deploy/.env.example`, `deploy/Caddyfile.snippet`, `deploy/local.env.example`, `scripts/smoke-hosted.sh` (13 checks; written first and run red against the live domain before deploy — 12 fail, 3005-unreachable passes). Real host/domain/hash live in gitignored `deploy/local.env`, read via `scripts/lib-deploy.sh`. Human-only steps are in `scripts/deploy-wizard.sh` (mattpocock `wizard` template; library section byte-identical to the template): the login password is hashed locally with `Bun.password.hash` (bcrypt, cost 12) so the plaintext never leaves the laptop; the API key goes over SSH straight into the server's `deploy/.env` (mode 600) and is never written on the laptop.
 
 - `deploy/docker-compose.yml`: service `taxlens`, `ports: ["127.0.0.1:3005:3005"]`, named volume
   `taxlens-data:/data`, `env_file: .env` (on server only, never committed), `restart: unless-stopped`.
@@ -290,7 +292,9 @@ AC — `scripts/smoke-hosted.sh <url>` (manual, post-deploy):
 5. `GET /.env` → 404.
 6. Port 3005 not reachable from outside the VM.
 
-### HM-12 — Data migration to the server
+### HM-12 — Data migration to the server ✅ (script)
+
+> `scripts/push-data-to-server.sh` + shared allowlist `scripts/data-files.txt` (never `.env`). Runs commands inside the app image so nothing extra is pulled on the VM; stops the app during the copy; `--force` snapshots existing data to `~/taxlens-snapshots/` first.
 
 - `scripts/push-data-to-server.sh`: copies an explicit allowlist of data files (the same list as
   HM-14) into the `taxlens-data` volume via `ssh` + `docker cp`.
@@ -300,7 +304,9 @@ AC — `scripts/smoke-hosted.sh <url>` (manual, post-deploy):
 
 AC: dry-run mode (`--dry-run`) lists files and actions without changing anything; tested manually, documented.
 
-### HM-13 — Pushing from Claude Code via SSH tunnel
+### HM-13 — Pushing from Claude Code via SSH tunnel ✅ (script)
+
+> `scripts/tunnel.sh`; documented in `docs/CLAUDE_CODE_IMPORT.md` and `docs/HOSTING.md`.
 
 - `scripts/tunnel.sh`: `ssh -N -L 3005:127.0.0.1:3005 <OCI_HOST>`, with a check that local port
   3005 is free (fails with "stop local dev server first").
@@ -310,7 +316,9 @@ AC: dry-run mode (`--dry-run`) lists files and actions without changing anything
 
 AC: manual — with the tunnel up, `curl localhost:3005/api/health` → `{ ok: true }`.
 
-### HM-14 — Backups
+### HM-14 — Backups ✅ (script)
+
+> `scripts/backup-to-gdrive.sh --from-server` (read-only volume mount, timestamped snapshot + `latest/`, cp-only, keep 30). Local mode now uses the shared allowlist; run for real 2026-10-21 — first-ever backup of `.filing-costs.json`.
 
 - `scripts/backup-to-gdrive.sh` gains `--from-server`: pulls the data files from the volume into
   `~/gdrive/.../taxlens/snapshots/YYYY-MM-DD/`, then updates `latest/`.

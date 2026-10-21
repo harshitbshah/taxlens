@@ -1,149 +1,155 @@
-# TaxLens → OCI Migration Plan
+# Hosting TaxLens — Runbook
 
-**Goal:** Host taxlens at `https://taxlens.duckdns.org` on the existing OCI VM, protected by the existing Authelia instance (TOTP), with persistent data and zero code changes to the app.
+How to run TaxLens on a self-hosted VM behind a username/password. Requirements and design
+rationale: [`HOSTED_MODE_SPEC.md`](HOSTED_MODE_SPEC.md) (HM-1 … HM-14).
+
+This repo is public, so real values never appear here. Placeholders:
+
+| Placeholder | Meaning | Where the real value lives |
+|---|---|---|
+| `<OCI_HOST>` | VM public IP / SSH host | `deploy/local.env` on the laptop (gitignored) |
+| `<TAXLENS_DOMAIN>` | Public hostname (DuckDNS) | `deploy/local.env`; `/etc/caddy/Caddyfile` on the VM |
+| `<USERNAME>` / `<BCRYPT_HASH>` | Basic-auth login | hash in `deploy/local.env` + Caddyfile; password in your password manager |
+| API key | Anthropic key used by the hosted app | `~/taxlens/deploy/.env` on the VM only (mode 600) |
 
 ---
 
 ## Architecture
 
 ```
-Browser
-  └─► taxlens.duckdns.org:443 (OCI public IP)
-        └─► Caddy (existing reverse proxy)
-              ├─► forward_auth ──► Authelia container (existing, port 9091)
-              └─► reverse_proxy ──► taxlens container (new, port 3005)
-                                          └─► /data volume (Docker named volume)
+Browser ──HTTPS──► Caddy (host systemd, /etc/caddy/Caddyfile)
+                     ├─ basic_auth (bcrypt), security headers, automatic Let's Encrypt TLS
+                     └─ reverse_proxy 127.0.0.1:3005   ← Host header passed through (HM-8 relies on it)
+                                   │
+                        Docker container "taxlens" (non-root, image taxlens:latest)
+                          TAXLENS_HOSTED=true → config validated at start (HM-4), key/wipe routes off (HM-7)
+                          /data ← named volume "taxlens-data"
+
+Laptop ──ssh -L 3005──► 127.0.0.1:3005   scripts/tunnel.sh — /parse-return, /analyze-taxes (HM-13)
+Laptop ◄──ssh + tar──── taxlens-data      scripts/backup-to-gdrive.sh --from-server (HM-14)
 ```
+
+The container publishes **only** `127.0.0.1:3005`. The VM firewall (OCI security list +
+iptables) exposes only 22/80/443; `scripts/smoke-hosted.sh` checks 3005 is unreachable.
+
+## Files
+
+| File | Committed | Purpose |
+|---|---|---|
+| `Dockerfile`, `.dockerignore` | yes | Image (HM-10). `.dockerignore` keeps every `.*.json` and `.env*` out of the build context |
+| `deploy/docker-compose.yml` | yes | Service definition (HM-11) |
+| `deploy/.env.example` → `deploy/.env` | template only | Server-side `ANTHROPIC_API_KEY` |
+| `deploy/Caddyfile.snippet` | yes (placeholders) | Site block to append to `/etc/caddy/Caddyfile` |
+| `deploy/local.env.example` → `deploy/local.env` | template only | Laptop-side host, domain, remote dir, basic-auth user + hash |
+| `scripts/deploy-wizard.sh` | yes | Human-only steps: choose login, send API key to server |
+| `scripts/verify-image.sh` | yes | Image acceptance checks (run locally, needs Docker) |
+| `scripts/smoke-hosted.sh` | yes | Post-deploy live checks |
+| `scripts/push-data-to-server.sh` | yes | Laptop data → server volume |
+| `scripts/tunnel.sh` | yes | SSH tunnel for Claude Code pushes |
+| `scripts/backup-to-gdrive.sh` | yes | Backups (local or `--from-server`) |
+| `scripts/data-files.txt` | yes | The one list of data files (never `.env`) |
 
 ---
 
-## Prerequisites
+## First deploy
 
-- [ ] `taxlens.duckdns.org` registered at duckdns.org → same OCI VM public IP
-- [ ] Anthropic API key on hand
-- [ ] SSH access to OCI VM
-- [ ] taxlens repo cloned on OCI VM (or Docker image pushed to a registry)
+Prerequisites: SSH access to the VM as `ubuntu`, Docker + Compose and Caddy installed there,
+the DuckDNS name pointing at the VM, Google Drive mounted on the laptop for backups.
 
----
+1. **Laptop:** `cp deploy/local.env.example deploy/local.env` and fill in host, domain, remote dir.
+2. **Laptop:** `./scripts/verify-image.sh` — all checks must pass.
+3. **VM:** `git clone https://github.com/harshitbshah/taxlens.git ~/taxlens`
+4. **VM:** `cd ~/taxlens && docker build -t taxlens:latest . && docker builder prune -f`
+   (disk is tight on the free-tier VM; pruning frees ~1 GB of build cache).
+5. **Laptop:** `./scripts/deploy-wizard.sh` — choose the login (hashed locally), store the
+   password in your password manager, send the API key to `~/taxlens/deploy/.env`.
+6. **VM:** `docker compose -f ~/taxlens/deploy/docker-compose.yml up -d`, then
+   `docker ps` should show `taxlens` as `healthy`.
+7. **Laptop:** `./scripts/push-data-to-server.sh --dry-run`, then without `--dry-run`.
+   Checksums must all print `OK`.
+8. **VM — Caddy:**
+   ```bash
+   sudo cp /etc/caddy/Caddyfile /etc/caddy/Caddyfile.bak-$(date +%Y%m%d-%H%M%S)
+   # append deploy/Caddyfile.snippet with <TAXLENS_DOMAIN>, <USERNAME>, <BCRYPT_HASH> filled in
+   sudo caddy validate --config /etc/caddy/Caddyfile --adapter caddyfile
+   sudo systemctl reload caddy
+   ```
+   Caddy obtains the TLS certificate on the first request (needs ports 80/443 reachable).
+9. **Laptop:** `./scripts/smoke-hosted.sh` — all checks must pass.
+10. **Laptop:** `./scripts/backup-to-gdrive.sh --from-server` — first snapshot.
 
-## Phase 1 — App: Dockerize taxlens (~45 min)
+## Updating the app
 
-**1.1 Write `Dockerfile`** in the taxlens repo root:
-- Base image: `oven/bun:1` (multi-stage: build → runtime)
-- Build stage: `bun install` + `bun run build` (produces `dist/`)
-- Runtime stage: copy `src/`, `dist/`, `node_modules/`, config files
-- `ENV TAX_UI_DATA_DIR=/data` and `ENV NODE_ENV=production`
-- `EXPOSE 3005`, `CMD ["bun", "src/index.ts"]`
-
-**1.2 Add `taxlens` service to existing `docker-compose.yml` on OCI:**
-```
-service:  taxlens
-image:    built from repo (or registry)
-env:      ANTHROPIC_API_KEY (from .env or OCI secret)
-          TAX_UI_DATA_DIR=/data
-          NODE_ENV=production
-volume:   taxlens-data:/data
-network:  caddy-net (same network as Caddy)
-restart:  unless-stopped
-```
-
-**1.3 Migrate existing data** (one-time, before first run):
-- Copy `.tax-returns.json`, `.india-tax-returns.json`, and any cache JSONs from local machine into the Docker volume
-
----
-
-## Phase 2 — DNS (~5 min)
-
-- Log in to duckdns.org → add new domain `taxlens` → set IP to OCI VM public IP
-- Same IP as `mymindpalace` — Caddy already listens on 443 and will route by hostname
-
----
-
-## Phase 3 — Authelia: add second cookie domain (~20 min)
-
-Edit `~/authelia/configuration.yml` on OCI VM (sudo required):
-
-**3.1 Add second session cookie block:**
-```yaml
-session:
-  cookies:
-    - domain: mymindpalace.duckdns.org   # existing, untouched
-      name: authelia_session
-      authelia_url: https://mymindpalace.duckdns.org/authelia
-    - domain: taxlens.duckdns.org         # new
-      name: authelia_session_taxlens
-      authelia_url: https://mymindpalace.duckdns.org/authelia  # login portal stays on mindpalace
-```
-
-**3.2 Add access control rule:**
-```yaml
-access_control:
-  rules:
-    - domain: taxlens.duckdns.org
-      policy: two_factor
-```
-
-**3.3 Restart Authelia container**
-
----
-
-## Phase 4 — Caddy: add site block (~20 min)
-
-Append to existing Caddyfile:
-```
-taxlens.duckdns.org {
-    forward_auth authelia:9091 {
-        uri /authelia/api/authz/forward-auth
-        copy_headers Remote-User Remote-Groups Remote-Name Remote-Email
-        header_up Host {host}
-    }
-    reverse_proxy taxlens:3005
-}
-```
-
-Reload Caddy — it auto-provisions a TLS cert for `taxlens.duckdns.org` via Let's Encrypt.
-
----
-
-## Phase 5 — Deploy & Smoke Test (~30 min)
-
-1. `docker compose up -d taxlens` on OCI VM
-2. Navigate to `https://taxlens.duckdns.org` → should redirect to Authelia login
-3. Log in with TOTP → should land on taxlens app
-4. Verify existing tax returns load from volume
-5. Test PDF upload → Claude parse → data persists after container restart
-
----
-
-## Data Backup (ongoing)
-
-The Docker volume (`taxlens-data`) holds all state. Suggested cron on OCI VM:
 ```bash
-# daily: copy taxlens data to gdrive
-docker run --rm -v taxlens-data:/data -v ~/gdrive/Backups:/backup \
-  alpine cp /data/.tax-returns.json /data/.india-tax-returns.json /backup/
+# VM
+cd ~/taxlens && git pull
+docker tag taxlens:latest taxlens:previous        # rollback point
+docker compose -f deploy/docker-compose.yml up -d --build
+docker builder prune -f
+# Laptop
+./scripts/smoke-hosted.sh
 ```
 
----
+Data lives in the `taxlens-data` volume and survives rebuilds (verified by `verify-image.sh`).
 
-## Risk & Rollback
+## Rollback
 
-| Risk | Mitigation |
+```bash
+# VM — previous image
+docker tag taxlens:previous taxlens:latest
+docker compose -f ~/taxlens/deploy/docker-compose.yml up -d --no-build
+# VM — previous Caddy config
+sudo cp /etc/caddy/Caddyfile.bak-<timestamp> /etc/caddy/Caddyfile && sudo systemctl reload caddy
+# VM — previous data (snapshots made by push-data-to-server.sh --force)
+docker run --rm -i -v taxlens-data:/data --entrypoint sh taxlens:latest -c 'tar -xf - -C /data' < ~/taxlens-snapshots/<file>.tar
+```
+
+## Pushing new returns from Claude Code (tax-planner)
+
+`/parse-return` and `/analyze-taxes` POST to `http://localhost:3005`. With hosted mode, the
+server copy is the source of truth:
+
+```bash
+./scripts/tunnel.sh          # stop the local dev server first; Ctrl-C closes the tunnel
+# in another terminal / Claude Code session:
+/parse-return 2026
+```
+
+Tunnel requests skip Caddy (no password needed — SSH is the authentication) and carry no
+browser headers, so the cross-site guard allows them.
+
+## Backups (manual)
+
+```bash
+./scripts/backup-to-gdrive.sh --from-server
+```
+
+Writes `…/Tax Return/USA/taxlens/snapshots/<timestamp>/` and refreshes `…/taxlens/latest/`.
+Keeps the newest 30 snapshots. The volume is mounted read-only for the export.
+
+**Restore drill** (do once after the first backup):
+```bash
+docker volume create taxlens-restore-test
+cat latest/.tax-returns.json | ssh <OCI_HOST> "docker run --rm -i -v taxlens-restore-test:/data --entrypoint sh taxlens:latest -c 'cat > /data/.tax-returns.json'"
+# start a throwaway container on another port against that volume and load the app, then:
+docker volume rm taxlens-restore-test
+```
+
+## Rotating secrets
+
+- **Login password:** re-run `./scripts/deploy-wizard.sh` (stage 1), update the hash in
+  `/etc/caddy/Caddyfile`, `caddy validate`, `systemctl reload caddy`.
+- **API key:** revoke it in the Anthropic console, re-run the wizard (stage 2), then
+  `docker compose -f ~/taxlens/deploy/docker-compose.yml up -d --force-recreate`.
+
+## Troubleshooting
+
+| Symptom | Cause / fix |
 |---|---|
-| `taxlens.duckdns.org` unavailable | Check availability first; fallback name (e.g. `harshittaxlens`) |
-| Authelia multi-cookie config breaks existing site | Edit is additive; existing cookie block is untouched; rollback = remove new block + restart |
-| Data lost on first deploy | Migrate data *before* starting container; keep local copy as backup |
-| Anthropic API key exposed | Pass via env file, never bake into image |
-
----
-
-## Effort Summary
-
-| Phase | Time |
-|---|---|
-| Dockerfile + compose | 45 min |
-| DuckDNS registration | 5 min |
-| Authelia config | 20 min |
-| Caddy config | 20 min |
-| Deploy + test | 30 min |
-| **Total** | **~2 hours** |
+| Container exits immediately, logs say "TaxLens refused to start" | HM-4 config validation — the log lists every problem. Usually `deploy/.env` missing or empty |
+| Browser shows sample data | Should be impossible after HM-6; check `/api/config` returns `isDemo: false` |
+| `403 Cross-site request blocked` from the app itself | Reverse proxy not passing the original `Host` header (Caddy does by default — check for `header_up Host` overrides) |
+| `403 Disabled in hosted mode` | Expected for key changes / reset / browser-supplied keys — do these over SSH |
+| TLS error on first visit | Caddy hasn't issued the certificate yet; check `journalctl -u caddy` and that 80/443 are open |
+| `smoke-hosted.sh` "port 3005 reachable" fails | Compose `ports` must be `127.0.0.1:3005:3005`, never `3005:3005` |
+| Disk full during build | `docker builder prune -f`; `docker image prune` |
