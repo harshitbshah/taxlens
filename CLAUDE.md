@@ -183,7 +183,11 @@ bun run scripts/validate-returns.ts
 | `TAXLENS_HOSTNAME` | `127.0.0.1` | Bind address (HM-9). Use `127.0.0.1` (not `localhost`) in URLs/tools — `localhost` may resolve to `::1` |
 | `TAXLENS_HOSTED` | unset | `true` enables hosted-mode validation (HM-4) and route restrictions (HM-7). See `docs/HOSTED_MODE_SPEC.md` |
 | `NODE_ENV` | — | `production` switches to the static handler |
+
+Endpoints with no data: `GET /api/health` → `{ ok: true }` (HM-9) — keep it that way, it is unauthenticated inside the container network.
 | `DEMO_MODE` | — | `true` serves sample data; forbidden in hosted mode |
+
+Production static handler rules (HM-5): dotfile path segments always 404; unknown non-`/api/` paths return `index.html`; startup refuses a data dir that is or sits inside the static dir.
 
 All config parsing goes through `resolveServerEnv(env, defaults)` — add new vars there, with tests, not as ad-hoc `process.env` reads.
 

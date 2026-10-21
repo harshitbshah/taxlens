@@ -105,11 +105,13 @@ describe("HM-4: error reporting", () => {
   });
 });
 
-describe("HM-4: data dir and static dir must not overlap in hosted mode", () => {
+// The static handler only serves files inside the static dir, so the leak is specifically
+// "data dir is the static dir or inside it". The reverse (static dir inside data dir) is how
+// `bun run start` runs by default (data = repo root, static = src/) and exposes nothing.
+describe("HM-4/HM-5: data dir must not be inside the static dir", () => {
   const overlapping: [string, string, string][] = [
     ["identical", "/app/dist", "/app/dist"],
-    ["data dir contains static dir", "/app", "/app/dist"],
-    ["static dir contains data dir", "/app/dist/data", "/app/dist"],
+    ["data dir inside static dir", "/app/dist/data", "/app/dist"],
     ["overlap hidden behind ..", "/data/../app/dist", "/app/dist"],
   ];
 
@@ -118,7 +120,35 @@ describe("HM-4: data dir and static dir must not overlap in hosted mode", () => 
       { ...VALID_HOSTED, TAX_UI_DATA_DIR: dataDir, TAX_UI_STATIC_DIR: staticDir },
       DEFAULTS,
     );
-    expect(!result.ok && result.errors.some((e) => /overlap/.test(e))).toBe(true);
+    expect(!result.ok && result.errors.some((e) => /inside/.test(e))).toBe(true);
+  });
+
+  test("static dir inside data dir is allowed", () => {
+    const result = resolveServerEnv(
+      { ...VALID_HOSTED, TAX_UI_DATA_DIR: "/app", TAX_UI_STATIC_DIR: "/app/dist" },
+      DEFAULTS,
+    );
+    expect(result.ok).toBe(true);
+  });
+
+  test("applies to any production run, not only hosted mode", () => {
+    const result = resolveServerEnv(
+      { NODE_ENV: "production", TAX_UI_DATA_DIR: "/srv/dist", TAX_UI_STATIC_DIR: "/srv/dist" },
+      DEFAULTS,
+    );
+    expect(!result.ok && result.errors.some((e) => /inside/.test(e))).toBe(true);
+  });
+
+  test("default `bun run start` layout (data = cwd, static = src/) is allowed", () => {
+    expect(resolveServerEnv({ NODE_ENV: "production" }, DEFAULTS).ok).toBe(true);
+  });
+
+  test("dev mode is not checked (the static handler is not used)", () => {
+    const result = resolveServerEnv(
+      { TAX_UI_DATA_DIR: "/srv/dist", TAX_UI_STATIC_DIR: "/srv/dist" },
+      DEFAULTS,
+    );
+    expect(result.ok).toBe(true);
   });
 
   test("sibling directories sharing a name prefix are not an overlap", () => {

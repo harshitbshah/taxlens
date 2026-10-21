@@ -79,6 +79,8 @@ Answer questions about the user's income, taxes, deductions, credits, and tax ra
 
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
 const routes: Record<string, any> = {
+  // HM-9: liveness probe for Docker/Caddy. Must never return data or config details.
+  "/api/health": () => Response.json({ ok: true }),
   "/api/config": {
     GET: () => {
       const hasKey = Boolean(getApiKey());
@@ -617,6 +619,14 @@ const routes: Record<string, any> = {
   },
 };
 
+function decodeStaticPath(pathname: string): string | null {
+  try {
+    return decodeURIComponent(pathname);
+  } catch {
+    return null;
+  }
+}
+
 export type CreateServerOptions = {
   port: number;
   hostname?: string;
@@ -641,9 +651,16 @@ export function createServer({
     routes: serverRoutes,
     fetch: production
       ? async (req) => {
-          const url = new URL(req.url);
-          const pathname = url.pathname === "/" ? "/index.html" : url.pathname;
-          const resolvedPath = path.resolve(staticDir, `.${pathname}`);
+          const pathname = decodeStaticPath(new URL(req.url).pathname);
+          // HM-5: dotfiles (.env, .tax-returns.json, …) are never static assets. Refusing them
+          // here keeps data safe even if the data dir is misconfigured to sit inside staticDir.
+          if (pathname === null || pathname.split("/").some((seg) => seg.startsWith("."))) {
+            return new Response("Not found", { status: 404 });
+          }
+          const resolvedPath = path.resolve(
+            staticDir,
+            `.${pathname === "/" ? "/index.html" : pathname}`,
+          );
 
           if (!resolvedPath.startsWith(staticDir)) {
             return new Response("Not found", { status: 404 });
@@ -652,6 +669,12 @@ export function createServer({
           const file = Bun.file(resolvedPath);
           if (await file.exists()) {
             return new Response(file);
+          }
+
+          // Client-side routes have no file on disk; serve the app shell so deep links load.
+          // Unknown /api/* paths must stay 404 so API errors are never masked as HTML.
+          if (!pathname.startsWith("/api/")) {
+            return new Response(Bun.file(path.join(staticDir, "index.html")));
           }
 
           return new Response("Not found", { status: 404 });

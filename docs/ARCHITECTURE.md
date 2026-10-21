@@ -14,6 +14,7 @@ Browser (React 19)
     ▼
 Bun server (src/server.ts createServer(), started by src/index.ts)   idleTimeout: 120s (Claude calls take 30–90s)
     ├── GET  /                           → serves React SPA
+    ├── GET  /api/health                 → { ok: true } liveness probe, no data (HM-9)
     ├── GET  /api/config                 → hasKey, isDemo, isDev
     ├── POST /api/config/key             → validate + save API key
     ├── POST /api/chat                   → Sonnet: year-aware chat

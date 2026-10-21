@@ -26,19 +26,20 @@ function isWithin(child: string, parent: string): boolean {
   return relative === "" || (!relative.startsWith("..") && !path.isAbsolute(relative));
 }
 
-// The production static handler serves any file under the static dir. If the data dir sits
-// inside it (or vice versa) the tax data and .env become downloadable.
-function overlapError(dataDir: string, staticDir: string): string | null {
+// HM-5: the production static handler serves files inside the static dir, so a data dir that
+// is (or sits inside) the static dir makes the tax data and .env downloadable. The reverse —
+// static dir inside the data dir — exposes nothing and is the default `bun run start` layout.
+function dataInsideStaticError(dataDir: string, staticDir: string): string | null {
   const data = path.resolve(dataDir);
   const stat = path.resolve(staticDir);
-  if (isWithin(data, stat) || isWithin(stat, data)) {
-    return `TAX_UI_DATA_DIR (${data}) and TAX_UI_STATIC_DIR (${stat}) must not overlap`;
+  if (isWithin(data, stat)) {
+    return `TAX_UI_DATA_DIR (${data}) must not be inside TAX_UI_STATIC_DIR (${stat})`;
   }
   return null;
 }
 
 // HM-4: a hosted server must refuse to start rather than start insecurely, so every rule is
-// checked and all failures are reported together.
+// checked and all failures are reported together (the HM-5 overlap rule is added by the caller).
 function hostedModeErrors(env: EnvVars): string[] {
   const errors = [
     env.NODE_ENV === "production" ? null : 'NODE_ENV must be "production" in hosted mode',
@@ -46,9 +47,6 @@ function hostedModeErrors(env: EnvVars): string[] {
     requireAbsoluteDir(env, "TAX_UI_STATIC_DIR"),
     env.ANTHROPIC_API_KEY ? null : "ANTHROPIC_API_KEY must be set in hosted mode",
     env.DEMO_MODE === "true" ? "DEMO_MODE must not be enabled in hosted mode" : null,
-    env.TAX_UI_DATA_DIR && env.TAX_UI_STATIC_DIR
-      ? overlapError(env.TAX_UI_DATA_DIR, env.TAX_UI_STATIC_DIR)
-      : null,
   ];
   return errors.filter((e): e is string => e !== null);
 }
@@ -58,19 +56,25 @@ export function resolveServerEnv(
   defaults: { cwd: string; defaultStaticDir: string },
 ): ServerEnvResult {
   const hosted = env.TAXLENS_HOSTED === "true";
-  if (hosted) {
-    const errors = hostedModeErrors(env);
-    if (errors.length > 0) return { ok: false, errors };
+  const production = env.NODE_ENV === "production";
+  const dataDir = env.TAX_UI_DATA_DIR || defaults.cwd;
+  const staticDir = env.TAX_UI_STATIC_DIR || defaults.defaultStaticDir;
+
+  const errors = hosted ? hostedModeErrors(env) : [];
+  if (production) {
+    const overlap = dataInsideStaticError(dataDir, staticDir);
+    if (overlap) errors.push(overlap);
   }
+  if (errors.length > 0) return { ok: false, errors };
 
   return {
     ok: true,
     config: {
       hosted,
-      production: env.NODE_ENV === "production",
+      production,
       demo: env.DEMO_MODE === "true",
-      dataDir: env.TAX_UI_DATA_DIR || defaults.cwd,
-      staticDir: env.TAX_UI_STATIC_DIR || defaults.defaultStaticDir,
+      dataDir,
+      staticDir,
       // HM-9: loopback by default so local dev doesn't expose tax data to the LAN.
       // Containers set 0.0.0.0 and rely on the host publishing only 127.0.0.1.
       hostname: env.TAXLENS_HOSTNAME || "127.0.0.1",

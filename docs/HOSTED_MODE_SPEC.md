@@ -138,7 +138,7 @@ AC:
   - `NODE_ENV=production`
   - `TAX_UI_DATA_DIR` set and absolute
   - `TAX_UI_STATIC_DIR` set and absolute
-  - data dir and static dir do not overlap (neither equal to nor nested in the other)
+  - data dir is not the static dir or inside it *(revised 2026-10-21 under HM-5 — was "neither nested in the other"; see HM-5 note)*
   - `ANTHROPIC_API_KEY` set
   - `DEMO_MODE` not `true`
 - `src/index.ts` prints all errors and exits with code 1 when `ok: false`.
@@ -146,9 +146,14 @@ AC:
 AC: one unit test per rule above (passing and failing case), plus:
 - All errors are reported at once, not just the first.
 - `TAXLENS_HOSTED` unset → no hosted rules applied (local dev unaffected).
-- Overlap detection uses resolved paths (`/data/../app` style tricks are caught).
+- Overlap detection uses resolved paths (`/data/../app` style tricks are caught) and does not false-positive on prefix siblings (`/app/dist` vs `/app/dist2`).
 
-### HM-5 — Static file handler can't leak data
+### HM-5 — Static file handler can't leak data ✅
+
+> Implemented 2026-10-21 in `src/server.ts` (production `fetch` handler) and `src/lib/hosted-config.ts`. HTTP tests in `tests/server.test.ts` against a temp static dir with decoy `.env`/`.tax-returns.json`.
+> **Confirmed leak (red):** before the fix, production mode served `/.env` and `/.tax-returns.json` when present in the static dir.
+> **Overlap rule revised:** the leak condition is precisely "data dir is, or is inside, the static dir". The original "neither nested in the other" rule would have refused the default `bun run start` layout (data = repo root, static = `src/`), which exposes nothing. One rule now applies to every production run, hosted or not. Dev mode is not checked (no static handler).
+> **Traversal test lesson:** `fetch()` normalises `%2e%2e/` client-side, so a first version of the traversal test never reached the server (caught by a mutation check). The test uses `..%2f`, which survives normalisation. The handler's `startsWith(staticDir)` containment check is prefix-unsafe (`/x` vs `/x2`); currently unreachable because the dotfile rule rejects `..` segments — flagged for code review.
 
 **Why:** Defence in depth for the production handler, hosted or not.
 
@@ -208,9 +213,9 @@ cross-site rejected; same-site rejected; mismatched Origin rejected; `Origin: nu
 no headers allowed; GET with cross-site headers allowed.
 AC (HTTP): cross-site `POST /api/clear-data` on a **local** test server → 403 and data intact.
 
-### HM-9 — Bind address and health endpoint (bind ✅, health pending)
+### HM-9 — Bind address and health endpoint ✅
 
-> Bind address implemented 2026-10-21 with HM-4: `TAXLENS_HOSTNAME`, default `127.0.0.1`; verified with `ss -ltn` that local dev listens on `127.0.0.1` only. Playwright `baseURL` switched from `localhost` to `127.0.0.1` because `localhost` may resolve to `::1`. `/api/health` is implemented with HM-5 (first production-mode HTTP tests).
+> Bind address implemented 2026-10-21 with HM-4: `TAXLENS_HOSTNAME`, default `127.0.0.1`; verified with `ss -ltn` that local dev listens on `127.0.0.1` only. Playwright `baseURL` switched from `localhost` to `127.0.0.1` because `localhost` may resolve to `::1`. `/api/health` implemented with HM-5; HTTP test in `tests/server.test.ts`.
 
 **Why:** Local dev shouldn't listen on the LAN; containers need to listen on all interfaces
 inside the container; Docker needs a liveness probe that exposes no data.
