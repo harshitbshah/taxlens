@@ -59,6 +59,10 @@ Tax return PDF parser using Claude API and Bun.
 ### Frontend
 - `src/App.tsx` — React entry; `ActiveCountry = string`; `countryReturns: Record<string, Record<number, unknown>>` state; fetches all registered non-US countries on startup; `handleUploadCountryReturn(country, file)` / `handleDeleteCountryReturn(country, year)` generic handlers; `forecastProfiles: Record<string, ForecastProfile>` for per-country forecast inputs
 
+### Demo mode (HM-6)
+- Decided only by `resolveDemoMode(devOverride, serverIsDemo)` in `src/lib/env.ts`. **Never** infer demo/hosted status from `window.location.hostname` — that made every self-hosted deployment show sample data.
+- `fetchInitialState()` failures set `loadError` and render an error screen; never fall back to `sampleReturns` silently.
+
 ### Forecast profile (US only)
 - `src/lib/forecast-profile-schema.ts` — browser-safe: `ForecastProfile` type, `countFilledFields()`, `confidenceLevel()`. Import this in client components.
 - `src/lib/forecast-profile.ts` — server-only (Bun I/O): `getForecastProfile(country)`, `saveForecastProfile(country, profile)`. Never import in browser code.

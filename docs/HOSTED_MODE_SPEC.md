@@ -168,7 +168,10 @@ AC (HTTP, production test server with temp static dir containing `index.html` an
 3. `GET /../package.json` → 404.
 4. `GET /some/deep/link` → 200 `index.html`.
 
-### HM-6 — Frontend asks the server whether it is in demo mode
+### HM-6 — Frontend asks the server whether it is in demo mode ✅
+
+> Implemented 2026-10-21. `src/lib/env.ts` (`resolveDemoMode = override ?? serverIsDemo`; `getHost`/`isLocalhostHost`/`isHostedEnvironment` removed), `src/App.tsx` (always fetches; `isHosted` + `loadError` state; load failure shows "Couldn't load your tax data" instead of silently rendering sample returns). Tests `src/lib/env.test.ts` fake a non-localhost `window` — without that the old code passed by accident under `bun test` (no `window`).
+> **Manual check:** headless Chromium with `--host-resolver-rules=MAP taxlens.test 127.0.0.1` against the dev server: page called `/api/config`, `/api/returns`, … and listed 8 years (real data; sample data has 4), no demo banner.
 
 **Why:** Hostname sniffing makes any hosted deployment show sample data.
 
@@ -183,7 +186,7 @@ AC:
 3. `GET /api/config` on a hosted test server → `{ isHosted: true, isDemo: false }`.
 4. Source-level guard: `isHostedEnvironment` no longer referenced in `src/`.
 
-### HM-7 — Dangerous routes disabled in hosted mode; API key is read-only ✅ (server) — UI with HM-6
+### HM-7 — Dangerous routes disabled in hosted mode; API key is read-only ✅
 
 > Server side implemented 2026-10-21 in `src/server.ts` (`buildRoutes({ hosted })`, `disabledInHostedMode()`) and `src/lib/api-key-policy.ts`. HTTP tests in `tests/server.test.ts`, unit + source guard in `src/lib/api-key-policy.test.ts`.
 > **Scope widened during implementation** (same intent — "the key can't be changed from the browser in hosted mode"): code reading found three more ways the key could change besides `/api/config/key`:
@@ -200,7 +203,7 @@ AC:
   (`DELETE /api/config/key` does not exist.)
 - Invalid-key handling goes through `forgetInvalidApiKey(hosted)`: removes the key locally, no-op in hosted mode. `server.ts` must not call `removeApiKey()` directly.
 - `/api/config` exposes `isHosted`; Settings UI hides key management and the reset action when
-  `isHosted` is true (display-only change, no test required per CLAUDE.md) — implemented with HM-6.
+  `isHosted` is true (display-only change, no test required per CLAUDE.md) — implemented with HM-6: the sidebar's "Reset data" item is omitted (`onOpenReset` optional). `SettingsModal` is never opened anywhere in the app (upstream leftover), so it needed no change; in hosted mode `hasStoredKey` is always true, so the upload flow never prompts for a key.
 
 AC:
 1. Hosted: `POST /api/clear-data` → 403, data file unchanged.

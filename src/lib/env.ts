@@ -1,20 +1,5 @@
 const DEV_DEMO_OVERRIDE_KEY = "dev-demo-override";
 
-export function getHost(): string | null {
-  if (typeof window === "undefined") return null;
-  return window.location.hostname;
-}
-
-export function isLocalhostHost(host: string | null): boolean {
-  if (!host) return false;
-  return host === "localhost" || host === "127.0.0.1";
-}
-
-export function isHostedEnvironment(): boolean {
-  if (typeof window === "undefined") return false;
-  return !isLocalhostHost(getHost());
-}
-
 export function getDevDemoOverride(): boolean | null {
   if (typeof window === "undefined") return null;
   const stored = localStorage.getItem(DEV_DEMO_OVERRIDE_KEY);
@@ -30,8 +15,8 @@ export function setDevDemoOverride(value: boolean | null): void {
   }
 }
 
+// HM-6: the server is the only authority on demo mode. Hostname sniffing (upstream's public
+// demo site) made every self-hosted deployment show sample data instead of the user's returns.
 export function resolveDemoMode(override: boolean | null, serverIsDemo: boolean): boolean {
-  if (override !== null) return override;
-  if (serverIsDemo) return true;
-  return isHostedEnvironment();
+  return override ?? serverIsDemo;
 }

@@ -14,7 +14,7 @@ import { Sidebar } from "./components/Sidebar";
 import { UploadModal } from "./components/UploadModal";
 import { CLIENT_REGISTRY } from "./countries/views";
 import { sampleReturns } from "./data/sampleData";
-import { getDevDemoOverride, isHostedEnvironment, resolveDemoMode } from "./lib/env";
+import { getDevDemoOverride, resolveDemoMode } from "./lib/env";
 import type { ForecastProfile } from "./lib/forecast-profile-schema";
 import type { ForecastResponse } from "./lib/forecaster";
 import {
@@ -83,29 +83,26 @@ interface AppState {
   hasUserData: boolean;
   isDemo: boolean;
   isDev: boolean;
+  isHosted: boolean;
+  loadError: string | null;
 }
 
 async function fetchInitialState(): Promise<
-  Pick<AppState, "returns" | "countryReturns" | "hasStoredKey" | "hasUserData" | "isDemo" | "isDev">
+  Pick<
+    AppState,
+    "returns" | "countryReturns" | "hasStoredKey" | "hasUserData" | "isDemo" | "isDev" | "isHosted"
+  >
 > {
-  if (isHostedEnvironment()) {
-    return {
-      hasStoredKey: false,
-      returns: {},
-      countryReturns: {},
-      hasUserData: false,
-      isDemo: true,
-      isDev: false,
-    };
-  }
-
   const nonUsCodes = Object.keys(CLIENT_REGISTRY).filter((c) => c !== "us");
   const [configRes, returnsRes, ...countryResults] = await Promise.all([
     fetch("/api/config"),
     fetch("/api/returns"),
     ...nonUsCodes.map((code) => fetch(`/api/${code}/returns`)),
   ]);
-  const { hasKey, isDemo, isDev } = await configRes.json();
+  if (!configRes.ok || !returnsRes.ok) {
+    throw new Error(`Server returned ${configRes.ok ? returnsRes.status : configRes.status}`);
+  }
+  const { hasKey, isDemo, isDev, isHosted } = await configRes.json();
   const returns = await returnsRes.json();
   const countryReturns: Record<string, Record<number, unknown>> = {};
   for (let i = 0; i < nonUsCodes.length; i++) {
@@ -120,6 +117,7 @@ async function fetchInitialState(): Promise<
     hasUserData,
     isDemo: isDemo ?? false,
     isDev: isDev ?? false,
+    isHosted: isHosted ?? false,
   };
 }
 
@@ -132,8 +130,10 @@ export function App() {
     activeCountry: "us",
     isLoading: true,
     hasUserData: false,
-    isDemo: isHostedEnvironment(),
+    isDemo: false,
     isDev: false,
+    isHosted: false,
+    loadError: null,
   });
   const [forecastStates, setForecastStates] = useState<Record<string, ForecastState>>({});
   const [forecastProfiles, setForecastProfiles] = useState<Record<string, ForecastProfile>>({});
@@ -215,7 +215,7 @@ export function App() {
 
   useEffect(() => {
     fetchInitialState()
-      .then(({ returns, countryReturns, hasStoredKey, hasUserData, isDemo, isDev }) => {
+      .then(({ returns, countryReturns, hasStoredKey, hasUserData, isDemo, isDev, isHosted }) => {
         const effectiveReturns = hasUserData ? returns : sampleReturns;
         setState({
           returns: effectiveReturns,
@@ -227,11 +227,15 @@ export function App() {
           hasUserData,
           isDemo,
           isDev,
+          isHosted,
+          loadError: null,
         });
       })
       .catch((err) => {
+        // HM-6: never fall back to sample data silently — it looks like the user's real returns.
         console.error("Failed to load:", err);
-        setState((s) => ({ ...s, isLoading: false }));
+        const message = err instanceof Error ? err.message : "Network error";
+        setState((s) => ({ ...s, isLoading: false, loadError: message }));
       });
   }, []);
 
@@ -566,6 +570,8 @@ export function App() {
       hasUserData: false,
       isDemo: s.isDemo,
       isDev: s.isDev,
+      isHosted: s.isHosted,
+      loadError: null,
     }));
     localStorage.removeItem(CHAT_OPEN_KEY);
     localStorage.removeItem(CHAT_HISTORY_KEY);
@@ -697,6 +703,15 @@ export function App() {
     return (
       <div className="flex min-h-screen items-center justify-center">
         <span className="text-sm text-(--color-text-muted)">Loading...</span>
+      </div>
+    );
+  }
+
+  if (state.loadError) {
+    return (
+      <div className="flex min-h-screen flex-col items-center justify-center gap-2">
+        <span className="text-sm">Couldn't load your tax data.</span>
+        <span className="text-xs text-(--color-text-muted)">{state.loadError}</span>
       </div>
     );
   }
@@ -869,7 +884,7 @@ export function App() {
             setOpenModal("onboarding");
           }
         }}
-        onOpenReset={() => setOpenModal("reset")}
+        onOpenReset={state.isHosted ? undefined : () => setOpenModal("reset")}
         onDeleteYear={handleDelete}
         isDemo={effectiveIsDemo}
         hasUserData={state.hasUserData}

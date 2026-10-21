@@ -15,7 +15,8 @@ interface Props {
   onSelect: (id: string) => void;
   onSwitchCountry: (country: string) => void;
   onOpenStart: () => void;
-  onOpenReset: () => void;
+  // Omitted in hosted mode, where /api/clear-data is disabled (HM-7).
+  onOpenReset?: () => void;
   onDeleteYear?: (year: string) => void;
   isDemo: boolean;
   hasUserData: boolean;
@@ -211,7 +212,7 @@ export function Sidebar({
                 : "Add return"
               : "Get started"}
           </MenuItem>
-          {!isDemo && (hasUserData || hasStoredKey) && (
+          {onOpenReset && !isDemo && (hasUserData || hasStoredKey) && (
             <MenuItem
               onClick={onOpenReset}
               className={cn(
