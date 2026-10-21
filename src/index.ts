@@ -1,5 +1,6 @@
 import { argv } from "bun";
 
+import { resolveServerEnv } from "./lib/hosted-config";
 import { createServer } from "./server";
 
 // Parse --port from command line args (supports --port=XXXX or --port XXXX)
@@ -11,10 +12,23 @@ function parsePort(): number {
   return Number(argv[idx + 1]) || 3000;
 }
 
-const server = createServer({
-  port: parsePort(),
-  production: process.env.NODE_ENV === "production",
-  staticDir: process.env.TAX_UI_STATIC_DIR || import.meta.dir,
+const resolved = resolveServerEnv(process.env, {
+  cwd: process.cwd(),
+  defaultStaticDir: import.meta.dir,
 });
 
-console.log(`Server running at ${server.url}`);
+if (!resolved.ok) {
+  console.error("TaxLens refused to start — invalid configuration:");
+  for (const error of resolved.errors) console.error(`  - ${error}`);
+  process.exit(1);
+}
+
+const { config } = resolved;
+const server = createServer({
+  port: parsePort(),
+  hostname: config.hostname,
+  production: config.production,
+  staticDir: config.staticDir,
+});
+
+console.log(`Server running at ${server.url}${config.hosted ? " (hosted mode)" : ""}`);

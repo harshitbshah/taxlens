@@ -32,3 +32,23 @@ describe("HM-3: API GETs are not intercepted by the dev-mode SPA wildcard", () =
     expect(await res.json()).toMatchObject({ projectedYear: 2099 });
   });
 });
+
+describe("HM-4: the entry point refuses to start with an invalid hosted config", () => {
+  test("exits 1 and prints every config error", async () => {
+    const proc = Bun.spawn(["bun", "src/index.ts", "--port", "0"], {
+      cwd: `${import.meta.dir}/..`,
+      // Empty key on purpose: Bun would otherwise load the real one from .env into the child.
+      env: { ...process.env, TAXLENS_HOSTED: "true", NODE_ENV: "", ANTHROPIC_API_KEY: "" },
+      stderr: "pipe",
+      stdout: "pipe",
+    });
+    const killer = setTimeout(() => proc.kill(), 10_000);
+    const exitCode = await proc.exited;
+    clearTimeout(killer);
+    const stderr = await new Response(proc.stderr).text();
+
+    expect(exitCode).toBe(1);
+    expect(stderr).toContain("NODE_ENV");
+    expect(stderr).toContain("ANTHROPIC_API_KEY");
+  }, 15_000);
+});

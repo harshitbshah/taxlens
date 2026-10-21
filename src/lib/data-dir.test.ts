@@ -155,11 +155,15 @@ describe("HM-1: source-level guard", () => {
     expect(offenders).toEqual([]);
   });
 
-  test("only data-dir.ts reads TAX_UI_DATA_DIR", () => {
+  // hosted-config.ts validates the variable from an env object passed in; it never builds
+  // data paths, so the rule is about process.env reads specifically.
+  test("only data-dir.ts reads process.env.TAX_UI_DATA_DIR", () => {
     const libDir = import.meta.dir;
     const readers = readdirSync(libDir)
       .filter((f) => f.endsWith(".ts") && !f.endsWith(".test.ts"))
-      .filter((f) => readFileSync(path.join(libDir, f), "utf-8").includes("TAX_UI_DATA_DIR"));
+      .filter((f) =>
+        readFileSync(path.join(libDir, f), "utf-8").includes("process.env.TAX_UI_DATA_DIR"),
+      );
     expect(readers).toEqual(["data-dir.ts"]);
   });
 });

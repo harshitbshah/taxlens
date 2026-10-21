@@ -1,6 +1,6 @@
 import { expect, test } from "@playwright/test";
 
-// These tests run against the live dev server (localhost:3005).
+// These tests run against the live dev server (127.0.0.1:3005).
 // Start it first: bun run dev
 // Then: bunx playwright test
 

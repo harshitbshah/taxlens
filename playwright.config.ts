@@ -7,7 +7,9 @@ export default defineConfig({
   retries: 0,
   reporter: "list",
   use: {
-    baseURL: "http://localhost:3005",
+    // 127.0.0.1, not localhost: the server binds IPv4 loopback only (HM-9) and "localhost"
+    // may resolve to ::1 first.
+    baseURL: "http://127.0.0.1:3005",
     trace: "on-first-retry",
     screenshot: "only-on-failure",
   },

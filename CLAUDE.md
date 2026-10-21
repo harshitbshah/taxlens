@@ -42,7 +42,7 @@ Tax return PDF parser using Claude API and Bun.
 
 ### Server
 - `src/server.ts` — `createServer(options)`: route table + `Bun.serve()` config (HM-3). Generic `/api/:country/*` routes serve all registered countries. US legacy routes (`/api/returns`, `/api/parse`, `/api/extract-year`) kept for backward compat and first-time key setup.
-- `src/index.ts` — thin entry point: parses `--port` and env, calls `createServer()`. Keep logic out of it so it stays testable via `createServer`.
+- `src/index.ts` — thin entry point: parses `--port`, validates env with `resolveServerEnv()` (`src/lib/hosted-config.ts`, HM-4 — exits 1 listing all errors), calls `createServer()`. Keep logic out of it so it stays testable via `createServer`.
 - `tests/helpers/test-server.ts` — `startTestServer(options)` starts a real server on port 0 with its own temp data dir; use it for route/API tests (`tests/*.test.ts`) instead of grepping source.
 - `src/lib/storage.ts` — US returns + API key persistence; includes `migrate()` for old stored data (backfills missing array fields)
 - `src/lib/india-storage.ts` — still used by `scripts/import-india.ts` CLI; app routes use generic storage now
@@ -173,6 +173,19 @@ bun run scripts/validate-returns.ts
 - No comments that explain *what* code does — use clear naming instead.
 - "Why" comments are allowed and encouraged when logic is non-obvious, references a specific tax form line (e.g. `// 1040 line 9`), or would otherwise be incorrectly "fixed" by someone reading it cold.
 - Narrative explanations of architecture or decisions belong in `CLAUDE.md` or `docs/` — not in source.
+
+## Runtime configuration (env vars)
+
+| Var | Default | Notes |
+|---|---|---|
+| `TAX_UI_DATA_DIR` | `cwd` | All data files. Read only via `dataPath()` |
+| `TAX_UI_STATIC_DIR` | `src/` | Production static files |
+| `TAXLENS_HOSTNAME` | `127.0.0.1` | Bind address (HM-9). Use `127.0.0.1` (not `localhost`) in URLs/tools — `localhost` may resolve to `::1` |
+| `TAXLENS_HOSTED` | unset | `true` enables hosted-mode validation (HM-4) and route restrictions (HM-7). See `docs/HOSTED_MODE_SPEC.md` |
+| `NODE_ENV` | — | `production` switches to the static handler |
+| `DEMO_MODE` | — | `true` serves sample data; forbidden in hosted mode |
+
+All config parsing goes through `resolveServerEnv(env, defaults)` — add new vars there, with tests, not as ad-hoc `process.env` reads.
 
 ## Data directory
 

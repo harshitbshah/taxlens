@@ -125,7 +125,10 @@ AC:
 2. Existing source-level regression tests pass against `src/server.ts`.
 3. `bun run dev` behaviour unchanged (manual check, documented).
 
-### HM-4 — Hosted-mode config validation (fail fast)
+### HM-4 — Hosted-mode config validation (fail fast) ✅
+
+> Implemented 2026-10-21. `src/lib/hosted-config.ts` (`resolveServerEnv`), wired into `src/index.ts`. Unit tests `src/lib/hosted-config.test.ts` (18), entry-point subprocess test in `tests/server.test.ts`. The "all errors at once" test was green on first run (the rules slice already collected every error) — kept as a guard. The HM-1 source guard was narrowed to `process.env.TAX_UI_DATA_DIR`, since `hosted-config.ts` validates the variable from a passed-in env object without building paths.
+> **Signature:** `resolveServerEnv(env, { cwd, defaultStaticDir })` — defaults are injected so the function stays pure.
 
 **Why:** A misconfigured hosted server should refuse to start, not start insecurely.
 
@@ -205,7 +208,9 @@ cross-site rejected; same-site rejected; mismatched Origin rejected; `Origin: nu
 no headers allowed; GET with cross-site headers allowed.
 AC (HTTP): cross-site `POST /api/clear-data` on a **local** test server → 403 and data intact.
 
-### HM-9 — Bind address and health endpoint
+### HM-9 — Bind address and health endpoint (bind ✅, health pending)
+
+> Bind address implemented 2026-10-21 with HM-4: `TAXLENS_HOSTNAME`, default `127.0.0.1`; verified with `ss -ltn` that local dev listens on `127.0.0.1` only. Playwright `baseURL` switched from `localhost` to `127.0.0.1` because `localhost` may resolve to `::1`. `/api/health` is implemented with HM-5 (first production-mode HTTP tests).
 
 **Why:** Local dev shouldn't listen on the LAN; containers need to listen on all interfaces
 inside the container; Docker needs a liveness probe that exposes no data.
