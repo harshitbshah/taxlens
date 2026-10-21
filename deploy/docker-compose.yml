@@ -1,0 +1,23 @@
+# HM-11: run on the server from the repo checkout: `docker compose -f deploy/docker-compose.yml up -d --build`
+# See docs/HOSTING.md for the full runbook.
+name: taxlens
+
+services:
+  taxlens:
+    build:
+      context: ..
+      dockerfile: Dockerfile
+    image: taxlens:latest
+    container_name: taxlens
+    # Server-only file with ANTHROPIC_API_KEY (template: deploy/.env.example). Never committed.
+    env_file: .env
+    # Loopback only: Caddy on the host terminates TLS and enforces basic_auth in front of this.
+    ports:
+      - "127.0.0.1:3005:3005"
+    volumes:
+      - taxlens-data:/data
+    restart: unless-stopped
+
+volumes:
+  taxlens-data:
+    name: taxlens-data

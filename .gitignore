@@ -69,3 +69,7 @@ resources/server-test/
 # Playwright
 test-results/
 playwright-report/
+
+# Hosted-mode secrets / per-machine deploy settings (HM-11)
+deploy/.env
+deploy/local.env

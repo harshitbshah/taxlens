@@ -1,0 +1,10 @@
+# Every TaxLens data file in the data dir (HM-12, HM-14). Add new storage files here.
+# Never add .env.
+.tax-returns.json
+.india-tax-returns.json
+.analysis-cache.json
+.insights-cache.json
+.forecast-cache.json
+.forecast-profile.json
+.retirement-accounts.json
+.filing-costs.json

@@ -1,0 +1,20 @@
+# HM-11: append to /etc/caddy/Caddyfile on the server, replacing both placeholders.
+# Generate the hash with the deploy wizard (scripts/deploy-wizard.sh) — never commit a real hash.
+<TAXLENS_DOMAIN> {
+	encode zstd gzip
+
+	basic_auth {
+		<USERNAME> <BCRYPT_HASH>
+	}
+
+	header {
+		Strict-Transport-Security "max-age=31536000"
+		X-Content-Type-Options "nosniff"
+		X-Frame-Options "DENY"
+		Referrer-Policy "no-referrer"
+		-Server
+	}
+
+	# Caddy forwards the client's Host header unchanged, which the HM-8 Origin check relies on.
+	reverse_proxy 127.0.0.1:3005
+}
