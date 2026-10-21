@@ -225,10 +225,12 @@ if confirm "Generate a strong random password for you? (recommended)"; then
   PASSWORD="$generated"
 else
   while :; do
-    ask_secret PASSWORD "Password (min 16 characters):"
+    ask_secret PASSWORD "Password (min 8 characters):"
     ask_secret PASSWORD_AGAIN "Same password again:"
     if [[ "$PASSWORD" != "$PASSWORD_AGAIN" ]]; then warn "didn't match, try again"; continue; fi
-    if (( ${#PASSWORD} < 16 )); then warn "too short, use at least 16 characters"; continue; fi
+    if (( ${#PASSWORD} < 8 )); then warn "too short, use at least 8 characters"; continue; fi
+    # Caddy's basic_auth has no attempt limit; shorter passwords lean on fail2ban (deferred, spec §13).
+    (( ${#PASSWORD} < 16 )) && warn "under 16 characters: consider enabling fail2ban on the Caddy log"
     break
   done
 fi

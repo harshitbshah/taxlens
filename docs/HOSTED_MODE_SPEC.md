@@ -440,7 +440,7 @@ Rules:
 | HM-9 bind change breaks access from another local device | Documented; set `TAXLENS_HOSTNAME=0.0.0.0` to restore | env var |
 | HM-6 breaks the upstream demo site behaviour | Not used by this fork; `DEMO_MODE=true` still works | revert commit |
 | Server disk is ~90% full | Prune images/build cache before first build; image target < 500 MB (463 MB measured, HM-10) | — |
-| Basic Auth brute force | Long random password (20+ chars, password manager). fail2ban deferred (§12). | — |
+| Basic Auth brute force | Password chosen by the user; wizard minimum 8 characters (lowered from 16 at the user's request, 2026-10-21) and warns under 16. Caddy `basic_auth` has no attempt limit, so with a shorter password fail2ban on the Caddy log is the recommended follow-up (deferred, §13). | — |
 | Bad deploy | `docker compose` keeps volume; previous image tag retained | `docker compose up -d` with previous tag |
 
 ## 11. Documentation deliverables
@@ -478,4 +478,4 @@ Deliberately not changed (judgement-call smells, low value vs churn): `FILE`/`CA
 |---|---|
 | Domain name | Chosen and registered on DuckDNS 2026-10-21 (resolves to the VM). Name kept out of the repo per §9 — referred to as `<TAXLENS_DOMAIN>`. |
 | Backup schedule | Manual only. The optional `systemd --user` timer in HM-14 is dropped. |
-| fail2ban | Deferred to a separate server-hardening task covering all sites on the VM (TaxLens, savvywatch, Wallos, SSH). A long random Basic-Auth password is the control for this round. |
+| fail2ban | Deferred to a separate server-hardening task covering all sites on the VM (TaxLens, savvywatch, Wallos, SSH). Revisit if the login password is under 16 characters — the wizard minimum is 8 at the user's request. |
