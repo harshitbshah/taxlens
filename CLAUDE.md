@@ -25,7 +25,9 @@ Tax return PDF parser using Claude API and Bun.
 - [`docs/PROGRESS.md`](docs/PROGRESS.md) — session-by-session progress log
 - [`docs/ADDING_COUNTRY_CONSTANTS.md`](docs/ADDING_COUNTRY_CONSTANTS.md) — how to add tax constants for a new country
 - [`docs/ADDING_COUNTRY.md`](docs/ADDING_COUNTRY.md) — full guide to onboarding a new country (schema, parser, server plugin, client plugin, registration)
-- [`docs/HOSTING.md`](docs/HOSTING.md) — OCI hosting plan (deferred)
+- [`docs/HOSTED_MODE_SPEC.md`](docs/HOSTED_MODE_SPEC.md) — hosted-mode spec (HM-1 … HM-14): self-hosting on OCI behind Caddy basic_auth; requirement IDs are used in tests, commits, and CHANGELOG
+- [`docs/HOSTING.md`](docs/HOSTING.md) — OCI hosting plan (being rewritten as a runbook under HOSTED_MODE_SPEC)
+- [`CHANGELOG.md`](CHANGELOG.md) — release notes from 0.5.0 onward; update with every user-visible or security-relevant change
 
 ## Architecture
 
@@ -170,7 +172,17 @@ bun run scripts/validate-returns.ts
 - "Why" comments are allowed and encouraged when logic is non-obvious, references a specific tax form line (e.g. `// 1040 line 9`), or would otherwise be incorrectly "fixed" by someone reading it cold.
 - Narrative explanations of architecture or decisions belong in `CLAUDE.md` or `docs/` — not in source.
 
+## Data directory
+
+All data files (`.tax-returns.json`, `.india-tax-returns.json`, every `*-cache.json`, `.forecast-profile.json`, `.retirement-accounts.json`, `.filing-costs.json`, `.env`) live in one directory: `TAX_UI_DATA_DIR`, default `cwd`.
+
+- **Always** build data paths with `dataPath(file)` from `src/lib/data-dir.ts`, called inside the function that does the I/O. Never store the path in a module-level constant — that captures the directory at import time and breaks test isolation (HM-1).
+- `src/lib/data-dir.ts` is the only `src/lib` module allowed to read `TAX_UI_DATA_DIR`; a guard test in `data-dir.test.ts` enforces this.
+- `.filing-costs.json` used to default to `$HOME`; since 0.5.0 it lives in the data dir like everything else. The old `~/.filing-costs.json` is kept only as a backup.
+
 ## Testing
+
+**Tests never touch real data.** `bunfig.toml` preloads `tests/setup/isolate-data-dir.ts`, which points `TAX_UI_DATA_DIR` at a fresh temp dir for the whole run (HM-2). Tests that need their own dir may still create one with `mkdtemp`. Never remove the preload. Background: before HM-1/HM-2, `bun test` read and wrote the real `~/.filing-costs.json` and deleted the real `.forecast-cache.json`.
 
 Every non-trivial change requires tests:
 - New logic → unit test in `src/lib/__tests__/` or alongside the file
