@@ -1,13 +1,10 @@
-import path from "path";
-
 import type { CountryServerPlugin } from "./country-registry";
-
-const DATA_DIR = process.env.TAX_UI_DATA_DIR || process.cwd();
+import { dataPath } from "./data-dir";
 
 export async function getCountryReturns(
   plugin: CountryServerPlugin,
 ): Promise<Record<number, unknown>> {
-  const filePath = path.join(DATA_DIR, plugin.storageFile);
+  const filePath = dataPath(plugin.storageFile);
   const file = Bun.file(filePath);
   if (!(await file.exists())) return {};
   const raw = (await file.json()) as Record<string, unknown>;
@@ -25,7 +22,7 @@ export async function getCountryReturns(
 }
 
 export async function saveCountryReturn(plugin: CountryServerPlugin, r: unknown): Promise<void> {
-  const filePath = path.join(DATA_DIR, plugin.storageFile);
+  const filePath = dataPath(plugin.storageFile);
   const returns = await getCountryReturns(plugin);
   returns[plugin.getYear(r)] = r;
   await Bun.write(filePath, JSON.stringify(returns, null, 2));
@@ -35,13 +32,13 @@ export async function deleteCountryReturn(
   plugin: CountryServerPlugin,
   year: number,
 ): Promise<void> {
-  const filePath = path.join(DATA_DIR, plugin.storageFile);
+  const filePath = dataPath(plugin.storageFile);
   const returns = await getCountryReturns(plugin);
   delete returns[year];
   await Bun.write(filePath, JSON.stringify(returns, null, 2));
 }
 
 export async function clearCountryData(plugin: CountryServerPlugin): Promise<void> {
-  const filePath = path.join(DATA_DIR, plugin.storageFile);
+  const filePath = dataPath(plugin.storageFile);
   await Bun.write(filePath, "{}");
 }

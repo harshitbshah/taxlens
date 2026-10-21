@@ -1,16 +1,14 @@
-import path from "path";
-
+import { dataPath } from "./data-dir";
 import type { ForecastResponse } from "./forecaster";
 
-const DATA_DIR = process.env.TAX_UI_DATA_DIR || process.cwd();
-const CACHE_FILE = path.join(DATA_DIR, ".forecast-cache.json");
+const CACHE_FILE = () => dataPath(".forecast-cache.json");
 
 // Bump this string whenever the forecast prompt logic changes significantly.
 // A mismatch causes all cached forecasts to be treated as stale.
 export const FORECAST_PROMPT_VERSION = "4";
 
 async function readCache(): Promise<Record<string, ForecastResponse>> {
-  const file = Bun.file(CACHE_FILE);
+  const file = Bun.file(CACHE_FILE());
   if (!(await file.exists())) return {};
   try {
     const raw = (await file.json()) as Record<string, unknown>;
@@ -38,23 +36,23 @@ export async function saveForecastCache(
   const cache = await readCache();
   cache[country] = forecast;
   await Bun.write(
-    CACHE_FILE,
+    CACHE_FILE(),
     JSON.stringify({ __version: FORECAST_PROMPT_VERSION, ...cache }, null, 2),
   );
 }
 
 export async function clearForecastCache(country?: string): Promise<void> {
-  const file = Bun.file(CACHE_FILE);
+  const file = Bun.file(CACHE_FILE());
   if (!(await file.exists())) return;
   if (!country) {
     const fs = await import("fs/promises");
-    await fs.unlink(CACHE_FILE);
+    await fs.unlink(CACHE_FILE());
     return;
   }
   const cache = await readCache();
   delete cache[country];
   await Bun.write(
-    CACHE_FILE,
+    CACHE_FILE(),
     JSON.stringify({ __version: FORECAST_PROMPT_VERSION, ...cache }, null, 2),
   );
 }

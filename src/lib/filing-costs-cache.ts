@@ -1,10 +1,9 @@
 import { readFile, writeFile } from "fs/promises";
-import path from "path";
 
+import { dataPath } from "./data-dir";
 import type { CountryCosts, FilingCostsData } from "./filing-costs-schema";
 
-const DATA_DIR = process.env.TAX_UI_DATA_DIR ?? process.env.HOME ?? ".";
-const CACHE_FILE = () => path.join(DATA_DIR, ".filing-costs.json");
+const CACHE_FILE = () => dataPath(".filing-costs.json");
 
 async function readCache(): Promise<FilingCostsData> {
   try {

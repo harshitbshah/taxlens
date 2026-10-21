@@ -1,6 +1,5 @@
 // Server-only: Bun file I/O. Do not import this module in browser code.
 // For shared types, import from ./retirement-accounts-schema instead.
-import path from "path";
 
 export type {
   AllRetirementAccounts,
@@ -8,13 +7,13 @@ export type {
   RetirementAccountsYear,
 } from "./retirement-accounts-schema";
 
+import { dataPath } from "./data-dir";
 import type { AllRetirementAccounts, RetirementAccountsYear } from "./retirement-accounts-schema";
 
-const DATA_DIR = process.env.TAX_UI_DATA_DIR || process.cwd();
-const FILE = path.join(DATA_DIR, ".retirement-accounts.json");
+const FILE = () => dataPath(".retirement-accounts.json");
 
 async function readAll(): Promise<AllRetirementAccounts> {
-  const file = Bun.file(FILE);
+  const file = Bun.file(FILE());
   if (!(await file.exists())) return {};
   try {
     const raw = (await file.json()) as Record<string, unknown>;
@@ -40,11 +39,11 @@ export async function saveRetirementAccounts(
 ): Promise<void> {
   const all = await readAll();
   all[year] = accounts;
-  await Bun.write(FILE, JSON.stringify(all, null, 2));
+  await Bun.write(FILE(), JSON.stringify(all, null, 2));
 }
 
 export async function deleteRetirementAccounts(year: number): Promise<void> {
   const all = await readAll();
   delete all[year];
-  await Bun.write(FILE, JSON.stringify(all, null, 2));
+  await Bun.write(FILE(), JSON.stringify(all, null, 2));
 }

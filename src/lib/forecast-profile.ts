@@ -1,6 +1,5 @@
 // Server-only: Bun file I/O. Do not import this module in browser code.
 // For shared types and utilities, import from ./forecast-profile-schema instead.
-import path from "path";
 
 export type { ForecastProfile } from "./forecast-profile-schema";
 export {
@@ -8,13 +7,13 @@ export {
   countFilledFields,
   TOTAL_PROFILE_FIELDS,
 } from "./forecast-profile-schema";
+import { dataPath } from "./data-dir";
 import type { ForecastProfile } from "./forecast-profile-schema";
 
-const DATA_DIR = process.env.TAX_UI_DATA_DIR || process.cwd();
-const PROFILE_FILE = path.join(DATA_DIR, ".forecast-profile.json");
+const PROFILE_FILE = () => dataPath(".forecast-profile.json");
 
 async function readProfiles(): Promise<Record<string, ForecastProfile>> {
-  const file = Bun.file(PROFILE_FILE);
+  const file = Bun.file(PROFILE_FILE());
   if (!(await file.exists())) return {};
   try {
     const raw = (await file.json()) as Record<string, unknown>;
@@ -36,5 +35,5 @@ export async function saveForecastProfile(
 ): Promise<void> {
   const profiles = await readProfiles();
   profiles[country] = profile;
-  await Bun.write(PROFILE_FILE, JSON.stringify(profiles, null, 2));
+  await Bun.write(PROFILE_FILE(), JSON.stringify(profiles, null, 2));
 }

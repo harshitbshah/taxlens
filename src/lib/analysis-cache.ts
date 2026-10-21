@@ -1,9 +1,7 @@
-import path from "path";
-
 import type { AnalysisResponse } from "./analysis-schema";
+import { dataPath } from "./data-dir";
 
-const CACHE_FILE = () =>
-  path.join(process.env.TAX_UI_DATA_DIR || process.cwd(), ".analysis-cache.json");
+const CACHE_FILE = () => dataPath(".analysis-cache.json");
 
 // key: "${year}-${country}"  e.g. "2025-us"
 function cacheKey(year: number, country: string): string {

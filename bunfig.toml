@@ -2,3 +2,7 @@
 [serve.static]
 plugins = ["bun-plugin-tailwind"]
 env = "BUN_PUBLIC_*"
+
+[test]
+# HM-2: isolate all test runs from real data files. See docs/HOSTED_MODE_SPEC.md.
+preload = ["./tests/setup/isolate-data-dir.ts"]

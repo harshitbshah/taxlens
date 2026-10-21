@@ -165,10 +165,16 @@ Subsequent year visits
 | US tax returns | `.tax-returns.json` | JSON keyed by year, Zod-validated |
 | India tax returns | `.india-tax-returns.json` | JSON keyed by FY, Zod-validated |
 | Any future country | `.<code>-tax-returns.json` | JSON keyed by year/FY, plugin-defined |
-| Forecast cache | `.forecast-cache.json` | JSON, single ForecastResponse |
+| Forecast cache | `.forecast-cache.json` | JSON, Record<country, ForecastResponse> + `__version` |
 | Insights cache | `.insights-cache.json` | JSON, Record<year, InsightItem[]> |
+| Analysis cache | `.analysis-cache.json` | JSON, Record<`year-country`, AnalysisResponse> |
+| Forecast profile | `.forecast-profile.json` | JSON, Record<country, ForecastProfile> |
+| Retirement accounts | `.retirement-accounts.json` | JSON, Record<year, RetirementAccountsYear> |
+| Filing costs | `.filing-costs.json` | JSON, Record<year, Record<country, CountryCosts>> |
 | Chat history | localStorage | Per-session, browser-only |
 | API key | `.env` (ANTHROPIC_API_KEY) | Never committed |
+
+All files live in the **data dir**: `TAX_UI_DATA_DIR`, default `cwd`. Paths are built with `dataPath(file)` from `src/lib/data-dir.ts` on every call — never cached at import (HM-1, `docs/HOSTED_MODE_SPEC.md`). Tests run against a temp data dir enforced by `tests/setup/isolate-data-dir.ts` (HM-2).
 
 All files are gitignored. Return files are the source of truth — all caches are derived and can be regenerated. `/api/clear-data` wipes returns + all caches for all registered countries.
 
@@ -234,7 +240,7 @@ Country toggle appears only when `activeCountries.length > 1` (data exists for m
 
 ## Testing
 
-Test files live alongside source. Run: `bun test --testPathPattern="src/"`
+Test files live alongside source. Run: `bun test`. Every run is isolated from real data by the `bunfig.toml` preload `tests/setup/isolate-data-dir.ts` (HM-2).
 
 ```
 Unit tests (159 passing):
@@ -249,6 +255,7 @@ Unit tests (159 passing):
   src/lib/pdf-utils.test.ts          unwrapIfJavaSerialized (4)
   src/lib/time-units.test.ts         time unit conversions
   src/lib/forecaster.test.ts         buildForecastPrompt (6), parseForecastResponse (11)
+  src/lib/data-dir.test.ts          HM-1/HM-2: call-time data dir for every storage module, isolation + source guards (17)
   src/lib/forecast-cache.test.ts     getForecastCache, saveForecastCache, clearForecastCache (10)
   src/lib/insights.test.ts           buildInsightsPrompt (8), parseInsightsResponse (8)
   src/components/ForecastComponents.test.ts  computeFillPercent (7), confidenceBadgeClass (3), sortedByHighFirst (5)

@@ -1,6 +1,6 @@
 import { afterEach, beforeEach, describe, expect, test } from "bun:test";
-import path from "path";
 
+import { dataPath } from "./data-dir";
 import { clearForecastCache, getForecastCache, saveForecastCache } from "./forecast-cache";
 import type { ForecastResponse } from "./forecaster";
 
@@ -144,10 +144,7 @@ describe("clearForecastCache", () => {
 describe("backward compat: old single-ForecastResponse format", () => {
   test("discards old root-level ForecastResponse (stale prompt version)", async () => {
     // Write the old format directly — root-level ForecastResponse with no __version
-    await Bun.write(
-      path.join(process.env.TAX_UI_DATA_DIR || process.cwd(), ".forecast-cache.json"),
-      JSON.stringify(minimalForecast, null, 2),
-    );
+    await Bun.write(dataPath(".forecast-cache.json"), JSON.stringify(minimalForecast, null, 2));
     // Old format is treated as stale (version mismatch) — both countries return null
     expect(await getForecastCache("us")).toBeNull();
     expect(await getForecastCache("india")).toBeNull();
@@ -155,7 +152,7 @@ describe("backward compat: old single-ForecastResponse format", () => {
 
   test("discards cache with mismatched __version", async () => {
     await Bun.write(
-      path.join(process.env.TAX_UI_DATA_DIR || process.cwd(), ".forecast-cache.json"),
+      dataPath(".forecast-cache.json"),
       JSON.stringify({ __version: "0", us: minimalForecast }, null, 2),
     );
     expect(await getForecastCache("us")).toBeNull();
