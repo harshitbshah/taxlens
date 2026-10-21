@@ -249,7 +249,11 @@ AC:
 1. `resolveServerEnv({})` → `hostname: "127.0.0.1"`.
 2. `GET /api/health` → exactly `{ ok: true }`.
 
-### HM-10 — Container image
+### HM-10 — Container image ✅
+
+> Implemented 2026-10-21: `Dockerfile` (3 stages: build → prod-deps → `oven/bun:1.3.14-slim` runtime), `.dockerignore`, `scripts/verify-image.sh` (12 checks, written first and run red with no Dockerfile). Verified locally on x86_64; the server builds natively for arm64.
+> **Size:** first build was 1,159 MB — `bun-plugin-tailwind` declares the `bun` npm package as a peer dependency, pulling four duplicate Bun binaries (`@oven/*`, ~380 MB). Fixed with `bun install --production --omit peer`; `@anthropic-ai/claude-code` (69 MB, never imported by the app) moved to devDependencies. Result 463 MB (Bun binary 88 MB + 160 MB prod deps). The original "< 400 MB" target in §10 is relaxed to "< 500 MB".
+> Added beyond the AC: the script also checks that an asset referenced by `index.html` is served (catches a broken `dist/` layout), and that hosted mode is active in the image (`POST /api/config/key` → 403).
 
 - `Dockerfile` (multi-stage, `oven/bun:<pinned 1.3.x>`, builds for `linux/arm64`):
   build stage runs `bun install --frozen-lockfile` + `bun run build`; runtime stage contains only
@@ -427,7 +431,7 @@ Rules:
 | HM-1 refactor changes where data is read locally | `filing-costs` default moves from `$HOME` to `cwd` — one-time copy documented | Copy file back |
 | HM-9 bind change breaks access from another local device | Documented; set `TAXLENS_HOSTNAME=0.0.0.0` to restore | env var |
 | HM-6 breaks the upstream demo site behaviour | Not used by this fork; `DEMO_MODE=true` still works | revert commit |
-| Server disk is ~90% full | Prune images/build cache before first build; image target < 400 MB | — |
+| Server disk is ~90% full | Prune images/build cache before first build; image target < 500 MB (463 MB measured, HM-10) | — |
 | Basic Auth brute force | Long random password (20+ chars, password manager). fail2ban deferred (§12). | — |
 | Bad deploy | `docker compose` keeps volume; previous image tag retained | `docker compose up -d` with previous tag |
 

@@ -1,0 +1,24 @@
+# HM-10: nothing personal or secret may enter the build context, let alone the image.
+# Every data file is a dotfile JSON in the repo root; exclude them all by pattern so a new
+# cache file can't slip in.
+.*.json
+.env
+.env.*
+.api-key
+
+.git
+.github
+.claude
+.vscode
+.zed
+.scratch
+node_modules
+dist
+docs
+tests
+test-results
+playwright-report
+coverage
+resources
+electron
+*.log

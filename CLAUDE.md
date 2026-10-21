@@ -13,6 +13,7 @@ Tax return PDF parser using Claude API and Bun.
 
 - `bun run dev` — Start dev server with HMR
 - `bun run build` — Production build
+- `./scripts/verify-image.sh` — build the Docker image and run the HM-10 acceptance checks (needs Docker; uses dummy values only). Run after any change to `Dockerfile`, `.dockerignore`, dependencies, or startup config.
 - `bun run screenshots` — Capture all README screenshots via Playwright (dev server must be running with real data)
 
 ## Docs

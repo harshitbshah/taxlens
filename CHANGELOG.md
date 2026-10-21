@@ -22,12 +22,14 @@ Spec: [`docs/HOSTED_MODE_SPEC.md`](docs/HOSTED_MODE_SPEC.md)
 - `/api/config` now includes `isHosted`; the "Reset data" menu item is hidden in hosted mode (HM-7).
 - `GET /api/health` → `{ ok: true }` liveness endpoint (HM-9).
 - Production mode serves `index.html` for unknown non-API paths so client-side deep links load (HM-5).
+- `Dockerfile` + `.dockerignore` for hosted mode (non-root, `/data` volume, healthcheck, no data or secrets in the build context) and `scripts/verify-image.sh` acceptance checks (HM-10).
 - `docs/HOSTED_MODE_SPEC.md` — requirements HM-1 … HM-14 for running TaxLens on a self-hosted server behind a username/password.
 - `CHANGELOG.md` (this file).
 
 ### Changed
 - **Breaking (local data location):** `.filing-costs.json` now lives in the data dir (`TAX_UI_DATA_DIR`, default `cwd`) instead of `$HOME`. Copy `~/.filing-costs.json` into the project root once (HM-1).
 - **Behaviour change:** the server now binds `127.0.0.1` by default instead of all interfaces, so TaxLens is no longer reachable from other devices on your network. Set `TAXLENS_HOSTNAME=0.0.0.0` to restore the old behaviour (HM-9). Playwright now targets `127.0.0.1:3005`.
+- `@anthropic-ai/claude-code` moved from dependencies to devDependencies — the app never imports it (HM-10).
 - `src/index.ts` is now a thin entry point; routes and `Bun.serve()` config moved to `src/server.ts` (HM-3). No behaviour change.
 - All storage modules resolve their file path on every call instead of at import time (HM-1).
 

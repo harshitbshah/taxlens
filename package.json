@@ -16,7 +16,6 @@
     "format:check": "prettier --check \"src/**/*.{ts,tsx,css}\" \"*.{ts,json}\""
   },
   "dependencies": {
-    "@anthropic-ai/claude-code": "^2.1.25",
     "@anthropic-ai/sdk": "^0.72.1",
     "@base-ui/react": "^1.1.0",
     "@nivo/bar": "^0.99.0",
@@ -37,6 +36,7 @@
     "zod": "^4.3.6"
   },
   "devDependencies": {
+    "@anthropic-ai/claude-code": "^2.1.25",
     "@playwright/test": "^1.58.2",
     "@types/bun": "latest",
     "@types/react": "^19",
