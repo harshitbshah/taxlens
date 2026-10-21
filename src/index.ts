@@ -27,6 +27,7 @@ const { config } = resolved;
 const server = createServer({
   port: parsePort(),
   hosted: config.hosted,
+  demo: config.demo,
   hostname: config.hostname,
   production: config.production,
   staticDir: config.staticDir,

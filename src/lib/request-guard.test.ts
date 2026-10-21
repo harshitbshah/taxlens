@@ -57,3 +57,14 @@ describe("HM-8: only state-changing methods are guarded", () => {
     },
   );
 });
+
+describe("Review fix: Origin: null is blocked even without a Host header", () => {
+  test('Origin: "null" with no Host → blocked', () => {
+    const req = new Request("http://taxlens.example/api/clear-data", {
+      method: "POST",
+      headers: { origin: "null" },
+    });
+    req.headers.delete("host");
+    expect(isCrossSiteWrite(req)).toBe(true);
+  });
+});

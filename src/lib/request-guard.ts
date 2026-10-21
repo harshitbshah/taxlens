@@ -11,7 +11,10 @@ export function isCrossSiteWrite(req: Request): boolean {
 
   const origin = req.headers.get("origin");
   if (origin === null) return false;
-  return originHost(origin) !== req.headers.get("host");
+  // An unparseable Origin (including the literal "null") is never same-origin; compare
+  // explicitly so a missing Host header can't make null === null pass.
+  const host = originHost(origin);
+  return host === null || host !== req.headers.get("host");
 }
 
 // Compares host:port, not just hostname. Relies on the reverse proxy preserving the client's

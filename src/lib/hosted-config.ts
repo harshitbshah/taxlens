@@ -1,5 +1,7 @@
 import path from "path";
 
+import { isWithin } from "./paths";
+
 export type ServerEnv = {
   hosted: boolean;
   production: boolean;
@@ -19,11 +21,6 @@ function requireAbsoluteDir(env: EnvVars, name: string): string | null {
   if (!path.isAbsolute(value))
     return `${name} must be an absolute path in hosted mode (got "${value}")`;
   return null;
-}
-
-function isWithin(child: string, parent: string): boolean {
-  const relative = path.relative(parent, child);
-  return relative === "" || (!relative.startsWith("..") && !path.isAbsolute(relative));
 }
 
 // HM-5: the production static handler serves files inside the static dir, so a data dir that

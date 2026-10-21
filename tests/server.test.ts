@@ -8,6 +8,8 @@ import { startTestServer, type TestServer } from "./helpers/test-server";
 
 let server: TestServer | undefined;
 
+const SEEDED = '{"2020":{"seeded":true}}';
+
 afterEach(async () => {
   await server?.stop();
   server = undefined;
@@ -38,10 +40,12 @@ describe("HM-3: API GETs are not intercepted by the dev-mode SPA wildcard", () =
 
 describe("HM-4: the entry point refuses to start with an invalid hosted config", () => {
   test("exits 1 and prints every config error", async () => {
-    const proc = Bun.spawn(["bun", "src/index.ts", "--port", "0"], {
-      cwd: `${import.meta.dir}/..`,
-      // Empty key on purpose: Bun would otherwise load the real one from .env into the child.
-      env: { ...process.env, TAXLENS_HOSTED: "true", NODE_ENV: "", ANTHROPIC_API_KEY: "" },
+    // Run from an empty temp dir: Bun loads .env from the cwd, and the repo's holds the real key.
+    const cwd = await mkdtemp(path.join(tmpdir(), "taxlens-entry-"));
+    const entry = path.join(import.meta.dir, "..", "src", "index.ts");
+    const proc = Bun.spawn(["bun", entry, "--port", "0"], {
+      cwd,
+      env: { ...process.env, TAXLENS_HOSTED: "true", NODE_ENV: "" },
       stderr: "pipe",
       stdout: "pipe",
     });
@@ -49,6 +53,7 @@ describe("HM-4: the entry point refuses to start with an invalid hosted config",
     const exitCode = await proc.exited;
     clearTimeout(killer);
     const stderr = await new Response(proc.stderr).text();
+    await rm(cwd, { recursive: true, force: true });
 
     expect(exitCode).toBe(1);
     expect(stderr).toContain("NODE_ENV");
@@ -125,6 +130,23 @@ describe("HM-5: production static handler", () => {
     }
   });
 
+  test("a relative static dir still serves its assets", async () => {
+    staticDir = await makeStaticDir();
+    server = await startTestServer({
+      production: true,
+      staticDir: path.relative(process.cwd(), staticDir.dir),
+    });
+    const res = await fetch(`${server.url}/assets/app.js`);
+    expect(await res.text()).toBe("console.log('app')");
+  });
+
+  // HM-5 AC3 (revised): fetch() normalises "/../package.json" to "/package.json" before sending,
+  // which is not a file in the static dir, so the SPA shell is returned — never package.json.
+  test("GET /../package.json never returns package.json", async () => {
+    const { url } = await startProduction();
+    expect(await (await fetch(`${url}/../package.json`)).text()).not.toContain('"name"');
+  });
+
   test("unknown non-API paths fall back to index.html (SPA deep links)", async () => {
     const { url } = await startProduction();
     const res = await fetch(`${url}/some/deep/link`);
@@ -139,8 +161,6 @@ describe("HM-5: production static handler", () => {
 });
 
 describe("HM-8: cross-site writes are rejected on every /api route", () => {
-  const SEEDED = '{"2020":{"seeded":true}}';
-
   async function seededServer() {
     server = await startTestServer();
     await writeFile(path.join(server.dataDir, ".tax-returns.json"), SEEDED);
@@ -194,8 +214,6 @@ describe("HM-7: hosted mode is visible to the frontend", () => {
 });
 
 describe("HM-7: dangerous routes are disabled in hosted mode", () => {
-  const SEEDED = '{"2020":{"seeded":true}}';
-
   test("POST /api/clear-data → 403 and data is untouched", async () => {
     server = await startTestServer({ hosted: true });
     await writeFile(path.join(server.dataDir, ".tax-returns.json"), SEEDED);
@@ -228,4 +246,16 @@ describe("HM-7: dangerous routes are disabled in hosted mode", () => {
       expect(await Bun.file(path.join(server.dataDir, ".env")).exists()).toBe(false);
     },
   );
+});
+
+describe("Review fix: /api/config reflects the server's validated config, not process.env", () => {
+  test("production server reports isDev: false", async () => {
+    server = await startTestServer({ production: true });
+    expect(await (await fetch(`${server.url}/api/config`)).json()).toMatchObject({ isDev: false });
+  });
+
+  test("demo option is reported as isDemo: true", async () => {
+    server = await startTestServer({ demo: true });
+    expect(await (await fetch(`${server.url}/api/config`)).json()).toMatchObject({ isDemo: true });
+  });
 });

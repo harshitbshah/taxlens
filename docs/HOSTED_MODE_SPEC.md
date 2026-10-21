@@ -165,7 +165,7 @@ AC: one unit test per rule above (passing and failing case), plus:
 AC (HTTP, production test server with temp static dir containing `index.html` and a decoy `.env`):
 1. `GET /` → 200 `index.html`.
 2. `GET /.env`, `GET /.tax-returns.json`, `GET /%2e%65%6e%76` → 404.
-3. `GET /../package.json` → 404.
+3. `GET /../package.json` never returns `package.json` *(revised in review: `fetch()` normalises it to `/package.json`, which is not in the static dir, so the SPA shell is returned; the raw traversal case is covered by the `..%2f` prefix-sibling test)*.
 4. `GET /some/deep/link` → 200 `index.html`.
 
 ### HM-6 — Frontend asks the server whether it is in demo mode ✅
@@ -446,10 +446,24 @@ Updated alongside each step, not at the end:
 | `docs/PROGRESS.md` | Checkpoint entries |
 | This spec | Status → Approved → Implemented; per-requirement ✅ as completed |
 
-## 12. Resolved questions
+## 12. Code review (2026-10-21)
+
+Two-axis review (`mattpocock-skills:code-review`, standards + spec, fixed point `e0158bb`) after HM-1…HM-9. Fixed in commit "Review fixes":
+
+| Finding | Axis | Fix |
+|---|---|---|
+| `/api/config` read `process.env.DEMO_MODE`/`NODE_ENV`; validated `ServerEnv.demo` unused; `isDev` could disagree with `production` | both | `RouteContext { hosted, demo, production }` built from `ServerEnv`; HTTP tests |
+| Static containment used prefix-unsafe `startsWith`; relative `TAX_UI_STATIC_DIR` broke asset serving | spec | shared `isWithin()` (`src/lib/paths.ts`) + `path.resolve`; mutation check shows containment now blocks traversal independently of the dotfile rule |
+| `Origin: null` with no `Host` passed (`null === null`) | spec | unparseable Origin always blocked |
+| Preload didn't clear `TAXLENS_HOSTED`/`TAXLENS_HOSTNAME`/`DEMO_MODE`/`TAX_UI_STATIC_DIR`; entry-point subprocess test ran in repo root (loads real `.env`) | spec | preload clears them; subprocess runs from an empty temp cwd |
+| CLAUDE.md env table broken; stale "routes table" wording; narrative comment in preload; `clearAllData` duplicated `removeApiKey`; duplicated test constant; real domain in spec | standards | fixed |
+
+Deliberately not changed (judgement-call smells, low value vs churn): `FILE`/`CACHE_FILE` function names, `forgetInvalidApiKey(boolean)`, duplicated source-guard file walk in tests, repeated hosted check in parse/extract-year. HM-7 AC2 "no network call" is guaranteed by the early return rather than asserted. Empty-dataset rendering of sample returns is upstream onboarding behaviour, out of scope.
+
+## 13. Resolved questions
 
 | Question | Answer (2026-10-21) |
 |---|---|
-| Domain name | `taxlens.duckdns.org` (confirm availability at deploy; kept out of committed config per §9) |
+| Domain name | Chosen and registered on DuckDNS 2026-10-21 (resolves to the VM). Name kept out of the repo per §9 — referred to as `<TAXLENS_DOMAIN>`. |
 | Backup schedule | Manual only. The optional `systemd --user` timer in HM-14 is dropped. |
 | fail2ban | Deferred to a separate server-hardening task covering all sites on the VM (TaxLens, savvywatch, Wallos, SSH). A long random Basic-Auth password is the control for this round. |

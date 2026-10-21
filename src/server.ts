@@ -21,6 +21,7 @@ import { generateForecast } from "./lib/forecaster";
 import { generateInsights } from "./lib/insights";
 import { clearInsightsCache, getInsightsCache, saveInsightsCache } from "./lib/insights-cache";
 import { extractYearFromPdf, parseTaxReturn } from "./lib/parser";
+import { isWithin } from "./lib/paths";
 import { isCrossSiteWrite } from "./lib/request-guard";
 import {
   deleteRetirementAccounts,
@@ -78,7 +79,9 @@ ${activeContext}
 Answer questions about the user's income, taxes, deductions, credits, and tax rates based on this data.`;
 }
 
-type RouteContext = { hosted: boolean };
+// Built from the validated ServerEnv (src/lib/hosted-config.ts) — routes must read mode flags
+// from here, never from process.env.
+type RouteContext = { hosted: boolean; demo: boolean; production: boolean };
 
 // HM-7: behind a single shared password, replacing the billing key or wiping all data are the
 // highest-impact actions. In hosted mode they are done over SSH instead.
@@ -94,9 +97,12 @@ function buildRoutes(ctx: RouteContext): Record<string, any> {
     "/api/config": {
       GET: () => {
         const hasKey = Boolean(getApiKey());
-        const isDemo = process.env.DEMO_MODE === "true";
-        const isDev = process.env.NODE_ENV !== "production";
-        return Response.json({ hasKey, isDemo, isDev, isHosted: ctx.hosted });
+        return Response.json({
+          hasKey,
+          isDemo: ctx.demo,
+          isDev: !ctx.production,
+          isHosted: ctx.hosted,
+        });
       },
     },
     "/api/config/key": {
@@ -684,6 +690,7 @@ function decodeStaticPath(pathname: string): string | null {
 export type CreateServerOptions = {
   port: number;
   hosted?: boolean;
+  demo?: boolean;
   hostname?: string;
   production?: boolean;
   staticDir?: string;
@@ -692,12 +699,14 @@ export type CreateServerOptions = {
 export function createServer({
   port,
   hosted = false,
+  demo = false,
   hostname,
   production = false,
   staticDir = import.meta.dir,
 }: CreateServerOptions) {
+  const staticRoot = path.resolve(staticDir);
   // Build fresh tables rather than mutate the shared one: tests start several servers per process.
-  const apiRoutes = guardApiRoutes(buildRoutes({ hosted }));
+  const apiRoutes = guardApiRoutes(buildRoutes({ hosted, demo, production }));
   const serverRoutes = production ? apiRoutes : { ...apiRoutes, "/*": index };
 
   return serve({
@@ -715,11 +724,11 @@ export function createServer({
             return new Response("Not found", { status: 404 });
           }
           const resolvedPath = path.resolve(
-            staticDir,
+            staticRoot,
             `.${pathname === "/" ? "/index.html" : pathname}`,
           );
 
-          if (!resolvedPath.startsWith(staticDir)) {
+          if (!isWithin(resolvedPath, staticRoot)) {
             return new Response("Not found", { status: 404 });
           }
 
@@ -731,7 +740,7 @@ export function createServer({
           // Client-side routes have no file on disk; serve the app shell so deep links load.
           // Unknown /api/* paths must stay 404 so API errors are never masked as HTML.
           if (!pathname.startsWith("/api/")) {
-            return new Response(Bun.file(path.join(staticDir, "index.html")));
+            return new Response(Bun.file(path.join(staticRoot, "index.html")));
           }
 
           return new Response("Not found", { status: 404 });

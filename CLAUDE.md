@@ -187,13 +187,13 @@ bun run scripts/validate-returns.ts
 | `TAXLENS_HOSTNAME` | `127.0.0.1` | Bind address (HM-9). Use `127.0.0.1` (not `localhost`) in URLs/tools — `localhost` may resolve to `::1` |
 | `TAXLENS_HOSTED` | unset | `true` enables hosted-mode validation (HM-4) and route restrictions (HM-7). See `docs/HOSTED_MODE_SPEC.md` |
 | `NODE_ENV` | — | `production` switches to the static handler |
+| `DEMO_MODE` | — | `true` serves sample data; forbidden in hosted mode |
 
 Endpoints with no data: `GET /api/health` → `{ ok: true }` (HM-9) — keep it that way, it is unauthenticated inside the container network.
-| `DEMO_MODE` | — | `true` serves sample data; forbidden in hosted mode |
 
 Hosted mode (HM-7): routes are built by `buildRoutes({ hosted })` in `src/server.ts`. In hosted mode the API key is read-only (env only): key-changing and data-wiping routes return `disabledInHostedMode()` (403). On invalid-key errors call `forgetInvalidApiKey(ctx.hosted)`, never `removeApiKey()` directly (guard test enforces this).
 
-Cross-site guard (HM-8): every `/api/*` route is wrapped by `guardApiRoutes()` in `src/server.ts` — non-GET requests flagged cross-site by `Sec-Fetch-Site` or a mismatched `Origin` get 403. Add routes to the `routes` table and they are guarded automatically; don't register API routes elsewhere.
+Cross-site guard (HM-8): every `/api/*` route is wrapped by `guardApiRoutes()` in `src/server.ts` — non-GET requests flagged cross-site by `Sec-Fetch-Site` or a mismatched `Origin` get 403. Add routes inside `buildRoutes()` and they are guarded automatically; don't register API routes elsewhere. Read mode flags from `ctx` (`hosted`, `demo`, `production` — built from the validated `ServerEnv`), never from `process.env`.
 
 Production static handler rules (HM-5): dotfile path segments always 404; unknown non-`/api/` paths return `index.html`; startup refuses a data dir that is or sits inside the static dir.
 

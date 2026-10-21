@@ -32,6 +32,7 @@ Spec: [`docs/HOSTED_MODE_SPEC.md`](docs/HOSTED_MODE_SPEC.md)
 - All storage modules resolve their file path on every call instead of at import time (HM-1).
 
 ### Fixed
+- Review fixes: `/api/config` derives `isDemo`/`isDev` from the validated server config; production static handler uses a prefix-safe containment check and accepts a relative `TAX_UI_STATIC_DIR`; `Origin: null` is always treated as cross-site; the test preload also clears mode switches (`TAXLENS_HOSTED`, `TAXLENS_HOSTNAME`, `DEMO_MODE`, `TAX_UI_STATIC_DIR`).
 - Opening TaxLens on any hostname other than `localhost`/`127.0.0.1` showed the built-in sample data and never loaded your returns (leftover from upstream's public demo site). Demo mode is now decided only by the server (`DEMO_MODE`) or the dev override. If the initial load fails, the app shows an error instead of sample data (HM-6).
 - **Security:** any website open in your browser could change or wipe TaxLens data (e.g. a hidden form POST to `/api/clear-data` on `localhost`). State-changing `/api/*` requests marked cross-site by the browser (`Sec-Fetch-Site`, or an `Origin` that doesn't match `Host`) now get 403 (HM-8).
 - **Security:** the production static handler served dotfiles, so `/.env` (API key) and `/.tax-returns.json` were downloadable whenever they sat in the static dir. Dotfile path segments are now always 404, and any production start refuses a data dir inside the static dir (HM-5).

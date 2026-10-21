@@ -96,24 +96,9 @@ export async function removeApiKey(): Promise<void> {
 }
 
 export async function clearAllData(): Promise<void> {
-  // Clear tax returns
   const returnsFile = Bun.file(RETURNS_FILE());
   if (await returnsFile.exists()) {
     await Bun.write(RETURNS_FILE(), "{}");
   }
-
-  // Clear API key from .env
-  const envFile = Bun.file(ENV_FILE());
-  if (await envFile.exists()) {
-    let content = await envFile.text();
-    content = content.replace(/^ANTHROPIC_API_KEY=.*$/gm, "").trim();
-    if (content) {
-      await Bun.write(ENV_FILE(), content + "\n");
-    } else {
-      // Delete empty .env file
-      const fs = await import("fs/promises");
-      await fs.unlink(ENV_FILE());
-    }
-  }
-  delete process.env.ANTHROPIC_API_KEY;
+  await removeApiKey();
 }

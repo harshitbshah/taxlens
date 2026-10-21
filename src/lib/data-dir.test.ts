@@ -29,6 +29,13 @@ describe("HM-2: test runs are isolated from real data", () => {
     expect(process.env.ANTHROPIC_API_KEY).toBeUndefined();
   });
 
+  test.each(["TAXLENS_HOSTED", "TAXLENS_HOSTNAME", "DEMO_MODE", "TAX_UI_STATIC_DIR"])(
+    "mode switch %s from the shell or .env is cleared",
+    (name) => {
+      expect(process.env[name]).toBeUndefined();
+    },
+  );
+
   test("data dir is neither the repo root nor $HOME", () => {
     const dir = path.resolve(getDataDir());
     expect(dir).not.toBe(REPO_ROOT);
