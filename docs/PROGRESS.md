@@ -30,23 +30,25 @@ Spec: `docs/HOSTED_MODE_SPEC.md` (spec-first, approved before code). Runbook: `d
 - Local dev listened on all interfaces.
 
 **Decisions (rationale in spec §9/§12/§13):**
-- Caddy `basic_auth` over Authelia/app login; app-level cross-site guard (testable, protects localhost too); disable key/wipe routes in hosted mode instead of confirmations; SSH tunnel instead of API token; build on the VM; manual laptop-driven backups; fail2ban deferred.
+- Caddy `basic_auth` over Authelia/app login; app-level cross-site guard (testable, protects localhost too); disable key/wipe routes in hosted mode instead of confirmations; SSH tunnel instead of API token; build on the VM; manual laptop-driven backups; fail2ban initially deferred (done later the same day — see below).
 - Overlap rule narrowed to the actual leak (data inside static) so `bun run start` keeps working.
 - Wizard password minimum lowered to 8 at the user's request (warns < 16) — strengthens the case for fail2ban.
 - Public repo: real domain/IP/hash only in gitignored `deploy/local.env` / server `deploy/.env`.
 
 **Known gaps:**
-- fail2ban on the Caddy log not set up (Caddy basic_auth has no attempt limit).
-- Restore drill from a Drive snapshot not yet rehearsed (documented in HOSTING.md).
+- ~~fail2ban on the Caddy log~~ — done the same day (commit d93f7df): jail `caddy-basic-auth`, 5 wrong passwords / 10 min → 1 h ban; see `docs/HOSTING.md` → fail2ban.
+- Restore drill from a Drive snapshot not yet rehearsed — offered and deliberately skipped by the user for now; design: throwaway volume `taxlens-restore-drill` + container `taxlens-drill` on 127.0.0.1:3006 with a dummy key, live data only read via GET (documented in HOSTING.md).
 - Forecast cache was wiped by old test runs — regenerate forecasts (US, India) in the hosted app.
 - 2025 India filing costs need re-entry (removed after the test-data incident).
 - Public-repo hygiene review deferred (tracked privately).
 - Judgement-call smells left as-is (spec §12).
 - VM disk ~91% used (`~/.openclaw` ~17 GB).
 
+**Also done (later, 2026-10-21):** `docs/USER_GUIDE.md` (plain-language guide), "Where the data lives" section in `HOSTING.md`, fail2ban.
+
 **Next:**
 - Round 2: tax-planner integration (planner pages, open items, document links via Drive) — new spec.
-- Optional: fail2ban; make repo private + scrub screenshots; restore drill.
+- Optional: restore drill; public-repo decision (tracked privately).
 
 ---
 
